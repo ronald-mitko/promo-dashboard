@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FFF3E3;
+  --color-green-4: #14332D;
+  --color-green-3: #007B4E;
+  --color-green-2: #00C48D;
+  --color-orange-3: #FF9527;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, 'Helvetica Neue', sans-serif;
+  background-color: #FFF3E3;
+  color: #14332D;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FFF3E3;
+}
+::-webkit-scrollbar-thumb {
+  background: #00C48D;
+  border-radius: 3px;
+}
+
+/* Smooth transitions for all interactive elements */
+button, a, input, select {
+  transition: all 0.2s ease;
+}
+
+/* Animation keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 196, 141, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 196, 141, 0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.4s; }
+.stagger-9 { animation-delay: 0.45s; }
+.stagger-10 { animation-delay: 0.5s; }
+
+/* Modal slide-up animation */
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-slide-up {
+  animation: modalSlideUp 0.3s ease-out forwards;
+}
+
+/* FAB pulse animation */
+@keyframes fabPulse {
+  0%, 100% {
+    box-shadow: 0 4px 14px rgba(0, 196, 141, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(0, 196, 141, 0.6), 0 0 0 6px rgba(0, 196, 141, 0.15);
+  }
+}
+
+.fab-pulse {
+  animation: fabPulse 2.5s ease-in-out infinite;
+}
+
+/* AI spinner */
+@keyframes aiSpin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-spinner {
+  animation: aiSpin 0.8s linear infinite;
+}
