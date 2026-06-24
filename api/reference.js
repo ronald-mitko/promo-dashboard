@@ -43,13 +43,17 @@ export default async function handler(req, res) {
     if (resource === 'authChains') {
       if (!teamId) return res.status(400).json({ error: 'teamId is required' })
       const slTeam = SL_COMBINED_TEAM[teamId] || teamId
+      const now = new Date()
+      const period = now.getFullYear() * 100 + (now.getMonth() + 1) // YYYYMM, e.g. 202606
       const rows = await queryRows(
-        `SELECT DISTINCT ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName, StoreArtsChainID
+        `SELECT DISTINCT ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName, StoreArtsChainId
          FROM SL_Combined
-         WHERE Team = @Team
-           AND Period = (SELECT MAX(Period) FROM SL_Combined WHERE Team = @Team)
+         WHERE Team = @Team AND Period = @Period
          ORDER BY ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName`,
-        [{ name: 'Team', type: TYPES.VarChar, value: slTeam }],
+        [
+          { name: 'Team', type: TYPES.VarChar, value: slTeam },
+          { name: 'Period', type: TYPES.Int, value: period },
+        ],
       )
       return res.status(200).json(rows.map((r) => ({
         chain: r.ArtsChainName,
