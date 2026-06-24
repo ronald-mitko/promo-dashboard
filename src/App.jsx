@@ -8,6 +8,8 @@ import { formatDate, formatDateRange, formatCurrency } from './lib/helpers'
 import { resolveRcsmForRecord, rcsmName } from './lib/routing'
 import { downloadExport } from './lib/exportFormat'
 import { apiEnabled, listSubmissions, saveSubmission, toSubmissionRecord } from './lib/api'
+import { useReferenceData } from './hooks/useReferenceData'
+import { ChainPicker } from './components/wizard/steps'
 import { SUBMISSION_STATUS, REQUEST_TYPES, PRIORITY_TYPES } from './lib/constants'
 import RequestStatusBadge from './components/RequestStatusBadge'
 import RequestButtons from './components/RequestButtons'
@@ -1245,10 +1247,13 @@ function DashboardView({ promotions, brandColors, onShowAddModal }) {
 // ─────────────────────────────────────────────
 // ADD PROMOTION MODAL
 // ─────────────────────────────────────────────
-function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpdatePromo, editPromo, promotions, brandColors, retailerChainData, onAddRequest, initialPriorityType }) {
+function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpdatePromo, editPromo, promotions, brandColors, retailerChainData, seedRefData, onAddRequest, initialPriorityType }) {
   const [activeModalTab, setActiveModalTab] = useState('manual')
   // Manual form state
   const [formData, setFormData] = useState({
+    teamId: '', teamName: '',
+    clientId: '', clientName: '',
+    chains: [],
     retailer: '',
     product: '',
     brand: '',
@@ -1265,6 +1270,21 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpd
     checklist_text: '',
   })
   const [formError, setFormError] = useState('')
+
+  // Reference data (Team → Client → Retailer chains) from SL_Combined when live, else seed.
+  const refData = useReferenceData({ teamId: formData.teamId, clientId: formData.clientId, chains: formData.chains }, seedRefData || { teams: [], clients: [], chains: [], stores: [], items: [] }, REQUEST_TYPES.AUTHORIZE)
+  const clientOptions = refData.clients.filter((c) => !formData.teamId || c.teamId === formData.teamId)
+  // Adapter so ChainPicker (reducer-style) can drive formData.chains
+  const chainDispatch = (action) => {
+    if (action.type === 'TOGGLE_IN_ARRAY') {
+      setFormData((prev) => {
+        const arr = prev.chains || []
+        return { ...prev, chains: arr.includes(action.value) ? arr.filter((v) => v !== action.value) : [...arr, action.value] }
+      })
+    } else if (action.type === 'SET_ARRAY') {
+      setFormData((prev) => ({ ...prev, chains: action.values }))
+    }
+  }
 
   // CSV upload state
   const [csvDragOver, setCsvDragOver] = useState(false)
@@ -1311,6 +1331,11 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpd
     if (editPromo) {
       setActiveModalTab('manual')
       setFormData({
+        teamId: editPromo.teamId || '',
+        teamName: editPromo.teamName || '',
+        clientId: editPromo.clientId || '',
+        clientName: editPromo.clientName || '',
+        chains: editPromo.chains || [],
         retailer: editPromo.retailer || '',
         product: editPromo.product || '',
         brand: editPromo.brand || '',
@@ -1337,8 +1362,8 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpd
   }
 
   const handleManualSubmit = () => {
-    if (!formData.retailer || !formData.product || !formData.brand || !formData.category || !formData.start_date || !formData.end_date || !formData.mechanic || !formData.retail_price || !formData.promo_price) {
-      setFormError('Please fill in all required fields: Retailer, Product Name, Brand, Category, Start Date, End Date, Mechanic, Retail Price, and Promo Price.')
+    if (!formData.teamId || !formData.clientId || formData.chains.length === 0 || !formData.product || !formData.brand || !formData.category || !formData.start_date || !formData.end_date || !formData.mechanic || !formData.retail_price || !formData.promo_price) {
+      setFormError('Please fill in all required fields: Team, Client, Retailer (at least one chain), Product Name, Brand, Category, Start Date, End Date, Mechanic, Retail Price, and Promo Price.')
       return
     }
     const retailPrice = parseFloat(formData.retail_price)
@@ -1347,10 +1372,18 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpd
       setFormError('Please enter valid prices.')
       return
     }
+    const primaryChain = refData.chains.find((c) => c.chain === formData.chains[0])
+    const master = primaryChain ? primaryChain.master : ''
     const depthOfDiscount = parseFloat(((1 - promoPrice / retailPrice) * 100).toFixed(1))
     const fields = {
-      retailer: formData.retailer,
-      chain: lookupChain(formData.retailer),
+      teamId: formData.teamId,
+      teamName: formData.teamName,
+      clientId: formData.clientId,
+      clientName: formData.clientName,
+      chains: formData.chains,
+      retailer: formData.chains.length === 1 ? formData.chains[0] : (master || `${formData.chains.length} chains`),
+      chain: master,
+      masterChain: master,
       priority_type: formData.priority_type || 'promo_display',
       product: formData.product,
       brand: formData.brand,
@@ -1370,10 +1403,10 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpd
     if (editPromo) {
       onUpdatePromo(editPromo.promo_id, fields)
     } else {
-      onAddPromo({ promo_id: generatePromoId(formData.retailer, formData.promo_type), ...fields })
+      onAddPromo({ promo_id: generatePromoId(fields.retailer, formData.promo_type), ...fields })
     }
     // Reset form
-    setFormData({ retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', checklist_text: '' })
+    setFormData({ teamId: '', teamName: '', clientId: '', clientName: '', chains: [], retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', checklist_text: '' })
     setFormError('')
     onClose()
   }
@@ -1610,15 +1643,30 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Retailer *</label>
-                  <input list="retailers-list" value={formData.retailer} onChange={(e) => handleFormChange('retailer', e.target.value)} placeholder="e.g. Walmart, Target, Kroger" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
-                  <datalist id="retailers-list">
-                    {[...new Set([
-                      ...(retailerChainData ? retailerChainData.map(r => r.retailer) : []),
-                      ...promotions.map(p => p.retailer)
-                    ])].filter(Boolean).sort().map(r => <option key={r} value={r}/>)}
-                  </datalist>
+                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Team *</label>
+                  <select value={formData.teamId} onChange={(e) => { const t = refData.teams.find((x) => x.id === e.target.value); setFormData((prev) => ({ ...prev, teamId: e.target.value, teamName: t ? t.name : '', clientId: '', clientName: '', chains: [] })); setFormError('') }} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all">
+                    <option value="">Select a team…</option>
+                    {refData.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
                 </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Client *</label>
+                  <select value={formData.clientId} disabled={!formData.teamId} onChange={(e) => { const c = clientOptions.find((x) => x.clientId === e.target.value); setFormData((prev) => ({ ...prev, clientId: e.target.value, clientName: c ? c.name : '' })); setFormError('') }} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all disabled:opacity-50">
+                    <option value="">{formData.teamId ? 'Select a client…' : 'Select a team first'}</option>
+                    {clientOptions.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Retailer * — master / sub-master / chain</label>
+                {formData.teamId ? (
+                  <ChainPicker chains={refData.chains} selectedChains={formData.chains} dispatch={chainDispatch} />
+                ) : (
+                  <p className="text-xs text-green-4/40 mt-1">Select a team to choose retailers.</p>
+                )}
+                <p className="text-xs text-green-4/50 mt-1">{formData.chains.length} selected</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Product Name *</label>
                   <input type="text" value={formData.product} onChange={(e) => handleFormChange('product', e.target.value)} placeholder="e.g. Product Name 15lb" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
@@ -2436,6 +2484,7 @@ function App() {
         promotions={promotions}
         brandColors={brandColors}
         retailerChainData={retailerChainData}
+        seedRefData={refData}
         onAddRequest={handleAddRequest}
         initialPriorityType={addPriorityType}
       />
