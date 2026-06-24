@@ -45,12 +45,20 @@ export function ClientStep({ state, dispatch, refData }) {
   return (
     <div>
       <label className={labelCls}>Select Client</label>
-      <div className="flex flex-wrap gap-2 mt-2">
+      <select
+        value={state.clientId}
+        onChange={(e) => {
+          const c = clients.find((x) => x.clientId === e.target.value)
+          dispatch({ type: 'SET', field: 'clientId', value: e.target.value })
+          dispatch({ type: 'SET', field: 'clientName', value: c ? c.name : '' })
+        }}
+        className={`${inputCls} w-full mt-2`}
+      >
+        <option value="">{clients.length ? 'Select a client…' : 'No clients available'}</option>
         {clients.map((c) => (
-          <ChoiceButton key={c.clientId} active={state.clientId === c.clientId} onClick={() => { dispatch({ type: 'SET', field: 'clientId', value: c.clientId }); dispatch({ type: 'SET', field: 'clientName', value: c.name }) }}>{c.name}</ChoiceButton>
+          <option key={c.clientId} value={c.clientId}>{c.name}</option>
         ))}
-      </div>
-      {clients.length === 0 && <p className="text-sm text-green-4/40 mt-3">No clients for this team.</p>}
+      </select>
     </div>
   )
 }
