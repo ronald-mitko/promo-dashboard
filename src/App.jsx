@@ -1,5 +1,24 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import * as XLSX from 'xlsx'
+import { useLocalStorageState } from './hooks/useLocalStorageState'
+import { STORAGE_KEYS, ROLES, ROLE_LABELS } from './lib/constants'
+import { SEED_RCSMS, SEED_TEAMS, SEED_CLIENTS, SEED_STORES, SEED_ITEMS } from './lib/seed'
+import { loadInitialSession, withPromoDefaultsAll, withPromoDefaults, runMigration, genId } from './lib/storage'
+import { formatDate, formatDateRange, formatCurrency } from './lib/helpers'
+import { resolveRcsmForRecord, rcsmName } from './lib/routing'
+import { downloadExport } from './lib/exportFormat'
+import { apiEnabled, listSubmissions, saveSubmission, toSubmissionRecord } from './lib/api'
+import { SUBMISSION_STATUS, REQUEST_TYPES, PRIORITY_TYPES } from './lib/constants'
+import RequestStatusBadge from './components/RequestStatusBadge'
+import RequestButtons from './components/RequestButtons'
+import StartView from './views/StartView'
+import PrioritiesListView from './views/PrioritiesListView'
+import InboxView from './views/InboxView'
+import MySubmissionsView from './views/MySubmissionsView'
+import WorkflowSection from './views/workflows/WorkflowSection'
+
+// Run additive localStorage migration once at module load.
+runMigration()
 
 // ─────────────────────────────────────────────
 // PROMOTIONS DATA (demo seed — loads when localStorage is empty)
@@ -175,18 +194,7 @@ const SEED_PROMOTIONS = [
 // ─────────────────────────────────────────────
 // HELPER FUNCTIONS
 // ─────────────────────────────────────────────
-function formatDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-function formatDateRange(start, end) {
-  return `${formatDate(start)} - ${formatDate(end)}`
-}
-
-function formatCurrency(val) {
-  return `$${val.toFixed(2)}`
-}
+// formatDate / formatDateRange / formatCurrency imported from ./lib/helpers
 
 // Generate brand colors dynamically from promo data
 const BRAND_COLOR_PALETTE = ['#FF9527', '#007B4E', '#00C48D', '#5B8DEF', '#E74C8B', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#6366F1']
@@ -240,6 +248,9 @@ function getRetailerIcon(retailer) {
 
 const PROMO_TYPE_STYLES = {
   TPR: 'bg-blue-100 text-blue-800',
+  Feature: 'bg-purple-100 text-purple-800',
+  Display: 'bg-pink-100 text-pink-800',
+  'Feature and Display': 'bg-indigo-100 text-indigo-800',
   'Feature+Display': 'bg-purple-100 text-purple-800',
   'Digital Coupon': 'bg-cyan-100 text-cyan-800',
   Shipper: 'bg-amber-100 text-amber-800',
@@ -487,7 +498,7 @@ function MultiSelectFilter({ label, selected, onChange, options }) {
 // ─────────────────────────────────────────────
 // PROMO CARD
 // ─────────────────────────────────────────────
-function PromoCard({ promo, index, onDelete, brandColors }) {
+function PromoCard({ promo, index, role, onDelete, onSubmit, onEdit, onAddRequest, brandColors }) {
   const [expanded, setExpanded] = useState(false)
   const [checkedItems, setCheckedItems] = useState({})
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -634,6 +645,33 @@ function PromoCard({ promo, index, onDelete, brandColors }) {
             ))}
           </div>
         </div>
+
+        {/* Submission status / submit to RCSM */}
+        {onSubmit && (
+          <div className="mt-4 pt-3 border-t border-green-4/8 flex items-center justify-between gap-2">
+            <RequestStatusBadge status={promo.submission_status} />
+            {role === 'hq' && promo.submission_status === 'draft' ? (
+              <div className="flex items-center gap-2">
+                {onEdit && <button onClick={() => onEdit(promo)} className="px-3 py-1.5 rounded-lg border border-green-4/15 text-green-4/70 hover:border-green-2 text-xs font-bold transition-colors">Edit</button>}
+                <button onClick={() => onSubmit(promo.promo_id)} className="px-3 py-1.5 rounded-lg bg-green-3 hover:bg-green-4 text-white text-xs font-bold transition-colors">Submit to RCSM</button>
+              </div>
+            ) : promo.submission_status && promo.submission_status !== 'draft' ? (
+              <span className="text-[11px] text-green-4/40">Sent for approval</span>
+            ) : null}
+          </div>
+        )}
+
+        {/* Reporting (only once submitted) */}
+        {role === 'hq' && onAddRequest && promo.submission_status && promo.submission_status !== 'draft' && (
+          <div className="mt-2">
+            <RequestButtons
+              size="xs"
+              types={['reporting']}
+              onAddRequest={onAddRequest}
+              linkedPromo={{ promo_id: promo.promo_id, retailer: promo.retailer, chain: promo.chain, brand: promo.brand, product: promo.product }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -642,7 +680,7 @@ function PromoCard({ promo, index, onDelete, brandColors }) {
 // ─────────────────────────────────────────────
 // PROMOTIONS VIEW
 // ─────────────────────────────────────────────
-function PromotionsView({ promotions, onDeletePromo, brandColors, onShowAddModal, retailerChainData }) {
+function PromotionsView({ promotions, role, onDeletePromo, onSubmitPromo, onEditPromo, onAddRequest, brandColors, onShowAddModal, retailerChainData }) {
   const [chainFilter, setChainFilter] = useState([])
   const [retailerFilter, setRetailerFilter] = useState('All')
   const [brandFilter, setBrandFilter] = useState('All')
@@ -805,7 +843,7 @@ function PromotionsView({ promotions, onDeletePromo, brandColors, onShowAddModal
       {/* Promo cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {filtered.map((promo, i) => (
-          <PromoCard key={promo.promo_id} promo={promo} index={i} onDelete={onDeletePromo} brandColors={brandColors}/>
+          <PromoCard key={promo.promo_id} promo={promo} index={i} role={role} onDelete={onDeletePromo} onSubmit={onSubmitPromo} onEdit={onEditPromo} onAddRequest={onAddRequest} brandColors={brandColors}/>
         ))}
       </div>
 
@@ -1207,7 +1245,7 @@ function DashboardView({ promotions, brandColors, onShowAddModal }) {
 // ─────────────────────────────────────────────
 // ADD PROMOTION MODAL
 // ─────────────────────────────────────────────
-function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, promotions, brandColors, retailerChainData }) {
+function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpdatePromo, editPromo, promotions, brandColors, retailerChainData, onAddRequest, initialPriorityType }) {
   const [activeModalTab, setActiveModalTab] = useState('manual')
   // Manual form state
   const [formData, setFormData] = useState({
@@ -1215,6 +1253,7 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, promo
     product: '',
     brand: '',
     category: '',
+    priority_type: 'promo_display',
     promo_type: 'TPR',
     start_date: '',
     end_date: '',
@@ -1266,6 +1305,32 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, promo
     return 'ended'
   }
 
+  // On open: prefill from the edited promo, or apply the chosen priority type for a new entry
+  useEffect(() => {
+    if (!isOpen) return
+    if (editPromo) {
+      setActiveModalTab('manual')
+      setFormData({
+        retailer: editPromo.retailer || '',
+        product: editPromo.product || '',
+        brand: editPromo.brand || '',
+        category: editPromo.category || '',
+        priority_type: editPromo.priority_type || 'promo_display',
+        promo_type: editPromo.promo_type || 'TPR',
+        start_date: editPromo.start_date || '',
+        end_date: editPromo.end_date || '',
+        mechanic: editPromo.mechanic || '',
+        retail_price: editPromo.retail_price != null ? String(editPromo.retail_price) : '',
+        promo_price: editPromo.promo_price != null ? String(editPromo.promo_price) : '',
+        expected_lift: editPromo.expected_lift != null ? String(editPromo.expected_lift) : '',
+        display: editPromo.display && editPromo.display !== 'None specified' ? editPromo.display : '',
+        checklist_text: (editPromo.checklist || []).join('\n'),
+      })
+    } else {
+      setFormData(prev => ({ ...prev, priority_type: initialPriorityType || 'promo_display' }))
+    }
+  }, [isOpen, editPromo, initialPriorityType])
+
   const handleFormChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     setFormError('')
@@ -1283,10 +1348,10 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, promo
       return
     }
     const depthOfDiscount = parseFloat(((1 - promoPrice / retailPrice) * 100).toFixed(1))
-    const promo = {
-      promo_id: generatePromoId(formData.retailer, formData.promo_type),
+    const fields = {
       retailer: formData.retailer,
       chain: lookupChain(formData.retailer),
+      priority_type: formData.priority_type || 'promo_display',
       product: formData.product,
       brand: formData.brand,
       category: formData.category,
@@ -1302,9 +1367,13 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, promo
       status: computeStatus(formData.start_date, formData.end_date),
       checklist: formData.checklist_text ? formData.checklist_text.split('\n').filter(l => l.trim()) : ['Verify price tag updated', 'Check stock levels', 'Photo verification required'],
     }
-    onAddPromo(promo)
+    if (editPromo) {
+      onUpdatePromo(editPromo.promo_id, fields)
+    } else {
+      onAddPromo({ promo_id: generatePromoId(formData.retailer, formData.promo_type), ...fields })
+    }
     // Reset form
-    setFormData({ retailer: '', product: '', brand: '', category: '', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', checklist_text: '' })
+    setFormData({ retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', checklist_text: '' })
     setFormError('')
     onClose()
   }
@@ -1506,13 +1575,13 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
         {/* Header */}
         <div className="bg-gradient-to-r from-green-3 to-green-2 px-5 py-4 shrink-0">
           <div className="flex items-center justify-between">
-            <h3 className="text-white font-bold text-lg">Add Promotion</h3>
+            <h3 className="text-white font-bold text-lg">{editPromo ? 'Edit Priority' : 'Add Promotion'}</h3>
             <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
               <CloseIcon className="w-5 h-5"/>
             </button>
           </div>
-          {/* Tabs */}
-          <div className="flex items-center gap-1 mt-3 bg-white/10 rounded-xl p-1">
+          {/* Tabs (hidden when editing an existing entry) */}
+          <div className={`items-center gap-1 mt-3 bg-white/10 rounded-xl p-1 ${editPromo ? 'hidden' : 'flex'}`}>
             {modalTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1571,7 +1640,7 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Promo Type *</label>
                   <select value={formData.promo_type} onChange={(e) => handleFormChange('promo_type', e.target.value)} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all">
-                    {['TPR', 'Feature+Display', 'Digital Coupon', 'Shipper'].map(o => <option key={o} value={o}>{o}</option>)}
+                    {['TPR', 'Feature', 'Display', 'Feature and Display'].map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -1616,11 +1685,12 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
               {formError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">{formError}</div>
               )}
+
               <button
                 onClick={handleManualSubmit}
                 className="w-full py-3 rounded-xl bg-green-2 hover:bg-green-3 text-white font-bold text-sm transition-colors shadow-md hover:shadow-lg"
               >
-                Add Promotion
+                {editPromo ? 'Save Changes' : 'Add Promotion'}
               </button>
             </div>
           )}
@@ -1836,14 +1906,52 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
 // MAIN APP
 // ─────────────────────────────────────────────
 function App() {
-  const [activeTab, setActiveTab] = useState('promotions')
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || 'null')
+      return s?.role === ROLES.RCSM ? 'inbox' : 'start'
+    } catch { return 'start' }
+  })
+  // Priority sub-type chosen from the launcher, passed into the entry modal
+  const [addPriorityType, setAddPriorityType] = useState('promo_display')
+  // Promotion currently being edited (draft only), or null for a new entry
+  const [editPromo, setEditPromo] = useState(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
-  // User name with localStorage persistence
-  const [userName, setUserName] = useState(() => localStorage.getItem('advsol_user_name') || 'User')
-  const [settingsName, setSettingsName] = useState(userName)
+  // Session: lightweight role switch (HQ enters/submits; RCSM approves/exports)
+  const [session, setSession] = useLocalStorageState(STORAGE_KEYS.session, loadInitialSession)
+  const role = session.role || ROLES.HQ
+  const userName = session.userName || 'User'
+
+  // RCSM directory + workflow requests collection
+  const [rcsms, setRcsms] = useLocalStorageState(STORAGE_KEYS.rcsms, () => SEED_RCSMS)
+  const [requests, setRequests] = useLocalStorageState(STORAGE_KEYS.requests, () => [])
+
+  // Settings popover draft fields
+  const [settingsName, setSettingsName] = useState(session.userName || 'User')
+  const [settingsRole, setSettingsRole] = useState(role)
+  const [settingsRcsmId, setSettingsRcsmId] = useState(session.rcsmId || (SEED_RCSMS[0] && SEED_RCSMS[0].rcsmId))
+
+  // Keep legacy advsol_user_name in sync for back-compat
+  useEffect(() => { localStorage.setItem('advsol_user_name', session.userName || 'User') }, [session.userName])
+
+  const openSettings = useCallback(() => {
+    setSettingsName(session.userName || '')
+    setSettingsRole(session.role || ROLES.HQ)
+    setSettingsRcsmId(session.rcsmId || (rcsms[0] && rcsms[0].rcsmId))
+    setShowSettings(true)
+  }, [session, rcsms])
+
+  const handleSaveSettings = useCallback(() => {
+    const isRcsm = settingsRole === ROLES.RCSM
+    const rcsmMatch = rcsms.find(r => r.rcsmId === settingsRcsmId)
+    const name = isRcsm ? (rcsmMatch?.name || settingsName || 'User') : (settingsName || 'User')
+    setSession({ role: settingsRole, userName: name, rcsmId: isRcsm ? settingsRcsmId : null })
+    setActiveTab(isRcsm ? 'inbox' : 'start')
+    setShowSettings(false)
+  }, [settingsRole, settingsRcsmId, settingsName, rcsms, setSession])
 
   // Retailer/Chain reference data from flat file (persisted in localStorage)
   const [retailerChainData, setRetailerChainData] = useState(() => {
@@ -1938,37 +2046,145 @@ function App() {
       const stored = localStorage.getItem('advsol_promotions')
       if (stored) {
         const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) return parsed
+        if (Array.isArray(parsed)) return withPromoDefaultsAll(parsed)
       }
     } catch (e) { /* ignore parse errors */ }
-    return SEED_PROMOTIONS
+    return withPromoDefaultsAll(SEED_PROMOTIONS)
   })
 
   // Compute brand colors from current promotions
   const brandColors = useMemo(() => getBrandColors(promotions), [promotions])
+
+  // Promotion Dashboard shows only promotion-type entries (legacy nulls count as promos)
+  const promoOnly = useMemo(() => promotions.filter(p => (p.priority_type || 'promo_display') === 'promo_display'), [promotions])
+
+  // Reference data for the workflow wizards. Chain hierarchy (master > submaster
+  // > chain) is derived from store data, mirroring the DB ARTS chain columns.
+  const refData = useMemo(() => {
+    const chainMap = new Map()
+    SEED_STORES.forEach((s) => {
+      if (!chainMap.has(s.artsChainName)) {
+        chainMap.set(s.artsChainName, { chain: s.artsChainName, subMaster: s.artsSubMasterChainName, master: s.artsMasterChainName })
+      }
+    })
+    return {
+      teams: SEED_TEAMS,
+      clients: SEED_CLIENTS,
+      chains: [...chainMap.values()],
+      stores: SEED_STORES,
+      items: SEED_ITEMS,
+    }
+  }, [])
 
   // Persist to localStorage on every change
   useEffect(() => {
     localStorage.setItem('advsol_promotions', JSON.stringify(promotions))
   }, [promotions])
 
+  // ── Cloud persistence (Vercel Postgres) when VITE_API=1; else localStorage only ──
+  const apiLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!apiEnabled()) { apiLoadedRef.current = true; return }
+    listSubmissions()
+      .then((recs) => {
+        setPromotions(recs.filter((r) => r.kind === 'promotion').map(withPromoDefaults))
+        setRequests(recs.filter((r) => r.kind === 'request'))
+      })
+      .catch(() => { /* fall back to local state */ })
+      .finally(() => { apiLoadedRef.current = true })
+  }, [])
+  useEffect(() => {
+    if (apiEnabled() && apiLoadedRef.current) promotions.forEach((p) => saveSubmission(toSubmissionRecord(p, 'promotion')).catch(() => {}))
+  }, [promotions])
+  useEffect(() => {
+    if (apiEnabled() && apiLoadedRef.current) requests.forEach((r) => saveSubmission(toSubmissionRecord(r, 'request')).catch(() => {}))
+  }, [requests])
+
   const handleAddPromo = useCallback((promo) => {
-    setPromotions(prev => [promo, ...prev])
+    setPromotions(prev => [withPromoDefaults(promo), ...prev])
   }, [])
 
   const handleAddMultiplePromos = useCallback((promos) => {
-    setPromotions(prev => [...promos, ...prev])
+    setPromotions(prev => [...promos.map(withPromoDefaults), ...prev])
   }, [])
 
   const handleDeletePromo = useCallback((promoId) => {
     setPromotions(prev => prev.filter(p => p.promo_id !== promoId))
   }, [])
 
-  const tabs = [
-    { id: 'promotions', label: 'Promotions', icon: <TagIcon className="w-4 h-4"/> },
-    { id: 'calendar', label: 'Calendar', icon: <CalendarIcon className="w-4 h-4"/> },
-    { id: 'dashboard', label: 'Dashboard', icon: <TrendUpIcon className="w-4 h-4"/> },
-  ]
+  // Edit a draft priority in place (only drafts are editable)
+  const handleUpdatePromo = useCallback((promoId, fields) => {
+    setPromotions(prev => prev.map(p => p.promo_id === promoId ? { ...p, ...fields } : p))
+  }, [])
+  const handleEditPromo = useCallback((promo) => {
+    setEditPromo(promo)
+    setShowAddModal(true)
+  }, [])
+  const openAddModal = useCallback(() => {
+    setEditPromo(null)
+    setShowAddModal(true)
+  }, [])
+
+  // ── Approval flow: HQ submits → routed to owning RCSM → RCSM approves/rejects
+  const histEntry = (from, to, by, note) => ({ at: new Date().toISOString(), from, to, by, ...(note ? { note } : {}) })
+
+  const handleSubmitPromo = useCallback((promoId) => {
+    setPromotions(prev => prev.map(p => {
+      if (p.promo_id !== promoId) return p
+      const routed = resolveRcsmForRecord(p, rcsms)
+      return { ...p, submission_status: SUBMISSION_STATUS.SUBMITTED, submitted_by: userName, submitted_at: new Date().toISOString(), routed_rcsm: routed, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.SUBMITTED, userName)] }
+    }))
+  }, [rcsms, userName])
+
+  const handleApprovePromo = useCallback((promoId) => {
+    setPromotions(prev => prev.map(p => p.promo_id === promoId ? { ...p, submission_status: SUBMISSION_STATUS.APPROVED, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.APPROVED, userName)] } : p))
+  }, [userName])
+
+  const handleRejectPromo = useCallback((promoId, note) => {
+    setPromotions(prev => prev.map(p => p.promo_id === promoId ? { ...p, submission_status: SUBMISSION_STATUS.REJECTED, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.REJECTED, userName, note)] } : p))
+  }, [userName])
+
+  // Workflow requests (authorize/workflag/support/reporting) — added in later phases
+  const handleAddRequest = useCallback((req) => {
+    const routed = resolveRcsmForRecord(req, rcsms)
+    setRequests(prev => [{
+      ...req,
+      requestId: req.requestId || genId('req'),
+      submittedBy: userName,
+      submittedAt: new Date().toISOString(),
+      status: SUBMISSION_STATUS.SUBMITTED,
+      routed_rcsm: routed,
+      approval_history: [histEntry('draft', SUBMISSION_STATUS.SUBMITTED, userName)],
+    }, ...prev])
+  }, [rcsms, userName, setRequests])
+
+  const handleApproveRequest = useCallback((id) => {
+    setRequests(prev => prev.map(r => r.requestId === id ? { ...r, status: SUBMISSION_STATUS.APPROVED, approval_history: [...(r.approval_history || []), histEntry(r.status, SUBMISSION_STATUS.APPROVED, userName)] } : r))
+  }, [userName, setRequests])
+
+  const handleRejectRequest = useCallback((id, note) => {
+    setRequests(prev => prev.map(r => r.requestId === id ? { ...r, status: SUBMISSION_STATUS.REJECTED, approval_history: [...(r.approval_history || []), histEntry(r.status, SUBMISSION_STATUS.REJECTED, userName, note)] } : r))
+  }, [userName, setRequests])
+
+  const handleExportRequest = useCallback((id) => {
+    const req = requests.find(r => r.requestId === id)
+    if (req) downloadExport(req)
+  }, [requests])
+
+  const tabs = role === ROLES.RCSM
+    ? [
+        { id: 'inbox', label: 'Inbox', icon: <ClipboardIcon className="w-4 h-4"/> },
+        { id: 'promotions', label: 'Priorities', icon: <TagIcon className="w-4 h-4"/> },
+        { id: 'calendar', label: 'Promo Calendar', icon: <CalendarIcon className="w-4 h-4"/> },
+      ]
+    : [
+        { id: 'start', label: 'Home', icon: <StoreIcon className="w-4 h-4"/> },
+        { id: 'promotions', label: 'Priorities', icon: <TagIcon className="w-4 h-4"/> },
+        { id: 'authorize', label: 'Authorize', icon: <CheckCircleIcon className="w-4 h-4"/> },
+        { id: 'promodash', label: 'Promo Dashboard', icon: <FireIcon className="w-4 h-4"/> },
+        { id: 'calendar', label: 'Promo Calendar', icon: <CalendarIcon className="w-4 h-4"/> },
+        { id: 'submissions', label: 'My Submissions', icon: <ClipboardIcon className="w-4 h-4"/> },
+      ]
 
   return (
     <div className="min-h-screen bg-cream">
@@ -1985,8 +2201,8 @@ function App() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-white font-bold text-base md:text-lg leading-tight tracking-tight">Advantage Solutions</h1>
-                <p className="text-white/70 text-xs md:text-sm leading-tight">Promotion Manager</p>
+                <h1 className="text-white font-bold text-base md:text-lg leading-tight tracking-tight">HQ to Retail Connector</h1>
+                <p className="text-white/70 text-xs md:text-sm leading-tight">Advantage Solutions</p>
               </div>
             </div>
 
@@ -2014,10 +2230,10 @@ function App() {
                 <div className="w-7 h-7 rounded-full bg-orange-3 flex items-center justify-center text-white text-xs font-bold">{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
                 <div className="text-right">
                   <div className="text-white text-sm font-semibold leading-tight">{userName}</div>
-                  <div className="text-white/60 text-[10px] leading-tight">Advantage Solutions</div>
+                  <div className="text-white/60 text-[10px] leading-tight">{ROLE_LABELS[role]}</div>
                 </div>
               </div>
-              <button onClick={() => { setSettingsName(userName); setShowSettings(!showSettings) }} className="text-white/60 hover:text-white transition-colors p-1" title="Settings">
+              <button onClick={openSettings} className="text-white/60 hover:text-white transition-colors p-1" title="Settings">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
                 </svg>
@@ -2056,9 +2272,9 @@ function App() {
                 <div className="w-8 h-8 rounded-full bg-orange-3 flex items-center justify-center text-white text-sm font-bold">{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
                 <div className="flex-1">
                   <div className="text-white text-sm font-semibold">{userName}</div>
-                  <div className="text-white/60 text-xs">Advantage Solutions</div>
+                  <div className="text-white/60 text-xs">{ROLE_LABELS[role]}</div>
                 </div>
-                <button onClick={() => { setSettingsName(userName); setShowSettings(!showSettings) }} className="text-white/60 hover:text-white transition-colors p-1" title="Settings">
+                <button onClick={openSettings} className="text-white/60 hover:text-white transition-colors p-1" title="Settings">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
                   </svg>
@@ -2074,12 +2290,44 @@ function App() {
         <div className="fixed inset-0 z-50 flex items-start justify-end p-4 pt-16" onClick={() => setShowSettings(false)}>
           <div className="bg-white rounded-2xl shadow-2xl border border-green-4/10 p-5 w-80 animate-fade-in-up max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-sm font-bold text-green-4 mb-3">Settings</h4>
+            {/* Role switch */}
             <div className="flex flex-col gap-1 mb-3">
-              <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Your Name</label>
-              <input type="text" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} placeholder="Your name" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+              <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Viewing As</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[{ id: ROLES.HQ, label: 'HQ' }, { id: ROLES.RCSM, label: 'RCSM' }].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSettingsRole(opt.id)}
+                    className={`py-2 rounded-lg text-sm font-bold transition-colors border ${settingsRole === opt.id ? 'bg-green-2 text-white border-green-2' : 'bg-white text-green-4/70 border-green-4/15 hover:border-green-2'}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {settingsRole === ROLES.RCSM ? (
+              <div className="flex flex-col gap-1 mb-3">
+                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">RCSM Identity</label>
+                <select
+                  value={settingsRcsmId}
+                  onChange={(e) => setSettingsRcsmId(e.target.value)}
+                  className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all"
+                >
+                  {rcsms.map((r) => (
+                    <option key={r.rcsmId} value={r.rcsmId}>{r.name} — {r.accounts.length} account{r.accounts.length !== 1 ? 's' : ''}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1 mb-3">
+                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Your Name</label>
+                <input type="text" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} placeholder="Your name" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+              </div>
+            )}
             <button
-              onClick={() => { setUserName(settingsName || 'User'); localStorage.setItem('advsol_user_name', settingsName || 'User'); setShowSettings(false) }}
+              onClick={handleSaveSettings}
               className="w-full py-2 rounded-lg bg-green-2 hover:bg-green-3 text-white font-bold text-sm transition-colors"
             >
               Save
@@ -2131,44 +2379,65 @@ function App() {
         {/* Page title */}
         <div className="mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-green-4">
-            {activeTab === 'promotions' && 'Active & Upcoming Promotions'}
-            {activeTab === 'calendar' && 'Promotion Calendar'}
-            {activeTab === 'dashboard' && 'Performance Dashboard'}
+            {activeTab === 'start' && `Welcome${userName && userName !== 'User' ? `, ${userName.split(' ')[0]}` : ''}`}
+            {activeTab === 'inbox' && 'Approval Inbox'}
+            {activeTab === 'promotions' && 'Current Priorities'}
+            {activeTab === 'promodash' && 'Promotion Dashboard'}
+            {activeTab === 'authorize' && 'Authorize Items'}
+            {activeTab === 'workflag' && 'Home Location Check'}
+            {activeTab === 'calendar' && 'Promo Calendar'}
+            {activeTab === 'submissions' && 'My Submissions'}
           </h2>
           <p className="text-sm text-green-4/50 mt-0.5">
-            {activeTab === 'promotions' && 'Manage and track promotional activities across your accounts'}
+            {activeTab === 'start' && 'What would you like to do?'}
+            {activeTab === 'inbox' && 'Approve or reject items routed to you, then export for your system'}
+            {activeTab === 'promotions' && 'All entered priorities — request reporting on any of them'}
+            {activeTab === 'promodash' && 'Detailed promotion cards and filters'}
+            {activeTab === 'authorize' && 'Enter new items and the chains to authorize them in'}
+            {activeTab === 'workflag' && 'Direct the field to verify the home shelf location of specific products'}
             {activeTab === 'calendar' && 'Timeline view of all promotional events across retailers'}
-            {activeTab === 'dashboard' && 'Key metrics and insights at a glance'}
+            {activeTab === 'submissions' && 'Track the status of everything you have submitted'}
           </p>
         </div>
 
         {/* Views */}
-        {activeTab === 'promotions' && <PromotionsView promotions={promotions} onDeletePromo={handleDeletePromo} brandColors={brandColors} onShowAddModal={() => setShowAddModal(true)} retailerChainData={retailerChainData}/>}
-        {activeTab === 'calendar' && <CalendarView promotions={promotions} brandColors={brandColors} onShowAddModal={() => setShowAddModal(true)}/>}
-        {activeTab === 'dashboard' && <DashboardView promotions={promotions} brandColors={brandColors} onShowAddModal={() => setShowAddModal(true)}/>}
+        {activeTab === 'start' && <StartView onAuthorize={() => setActiveTab('authorize')} onHomeLocationCheck={() => setActiveTab('workflag')} onViewPriorities={() => setActiveTab('promotions')} onAddPriority={(type) => { setAddPriorityType(type); openAddModal() }}/>}
+        {activeTab === 'inbox' && <InboxView session={session} promotions={promotions} requests={requests} onApprovePromo={handleApprovePromo} onRejectPromo={handleRejectPromo} onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest} onExportRequest={handleExportRequest}/>}
+        {activeTab === 'promotions' && <PrioritiesListView promotions={promotions} role={role} onSubmitPromo={role === ROLES.HQ ? handleSubmitPromo : null} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={handleAddRequest} onAddPriority={() => { setAddPriorityType('promo_display'); openAddModal() }}/>}
+        {activeTab === 'promodash' && <PromotionsView promotions={promoOnly} role={role} onDeletePromo={role === ROLES.HQ ? handleDeletePromo : null} onSubmitPromo={handleSubmitPromo} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={role === ROLES.HQ ? handleAddRequest : null} brandColors={brandColors} onShowAddModal={openAddModal} retailerChainData={retailerChainData}/>}
+        {activeTab === 'calendar' && <CalendarView promotions={promotions} brandColors={brandColors} onShowAddModal={openAddModal}/>}
+        {activeTab === 'authorize' && <WorkflowSection type={REQUEST_TYPES.AUTHORIZE} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
+        {activeTab === 'workflag' && <WorkflowSection type={REQUEST_TYPES.WORKFLAG} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
+        {activeTab === 'submissions' && <MySubmissionsView promotions={promotions} requests={requests} rcsms={rcsms} onAddRequest={handleAddRequest}/>}
       </main>
 
-      {/* Floating Action Button */}
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-green-2 hover:bg-green-3 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center text-3xl font-light fab-pulse hover:scale-110"
-        title="Add Promotion"
-      >
-        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <line x1="12" y1="5" x2="12" y2="19"/>
-          <line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </button>
+      {/* Floating Action Button (HQ only) */}
+      {role === ROLES.HQ && (activeTab === 'promotions' || activeTab === 'promodash') && (
+        <button
+          onClick={() => { setAddPriorityType('promo_display'); openAddModal() }}
+          className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-green-2 hover:bg-green-3 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center text-3xl font-light fab-pulse hover:scale-110"
+          title="Add Promotion"
+        >
+          <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      )}
 
       {/* Add Promotion Modal */}
       <AddPromoModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => { setShowAddModal(false); setEditPromo(null) }}
         onAddPromo={handleAddPromo}
         onAddMultiplePromos={handleAddMultiplePromos}
+        onUpdatePromo={handleUpdatePromo}
+        editPromo={editPromo}
         promotions={promotions}
         brandColors={brandColors}
         retailerChainData={retailerChainData}
+        onAddRequest={handleAddRequest}
+        initialPriorityType={addPriorityType}
       />
 
       {/* Footer */}
