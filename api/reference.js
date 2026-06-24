@@ -9,6 +9,9 @@ const TEAMS = [
   { id: '27', name: 'Hispanic Sales' },
 ]
 
+// SL_Combined uses different team labels than the workflag TeamID.
+const SL_COMBINED_TEAM = { '1': 'Core', '27': 'Ethnic Sales' }
+
 const BATCH_SIZE = 2000
 
 export default async function handler(req, res) {
@@ -39,13 +42,14 @@ export default async function handler(req, res) {
     // NOTE: adjust table/column names below to match your SL_Combined schema.
     if (resource === 'authChains') {
       if (!teamId) return res.status(400).json({ error: 'teamId is required' })
+      const slTeam = SL_COMBINED_TEAM[teamId] || teamId
       const rows = await queryRows(
         `SELECT DISTINCT ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName, StoreArtsChainID
          FROM SL_Combined
          WHERE Team = @Team
            AND Period = (SELECT MAX(Period) FROM SL_Combined WHERE Team = @Team)
          ORDER BY ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName`,
-        [{ name: 'Team', type: TYPES.VarChar, value: teamId }],
+        [{ name: 'Team', type: TYPES.VarChar, value: slTeam }],
       )
       return res.status(200).json(rows.map((r) => ({
         chain: r.ArtsChainName,
