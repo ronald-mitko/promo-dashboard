@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { REASON_CODES, FREQUENCIES, DATE_PRESETS, NEW_ITEM_FIELDS } from '../../lib/constants'
+import { useEffect, useMemo, useState } from 'react'
+import { DATE_PRESETS, NEW_ITEM_FIELDS } from '../../lib/constants'
 import { formatDateRange } from '../../lib/helpers'
 import { apiEnabled } from '../../lib/api'
 
@@ -69,13 +69,17 @@ function groupChains(chains) {
 // Hierarchical chain selector: master headers (with select-all), sub-master
 // sub-headers, and leaf-chain checkboxes. Selection is at the leaf-chain level.
 export function ChainPicker({ chains, selectedChains, dispatch }) {
-  const groups = groupChains(chains)
+  const [search, setSearch] = useState('')
+  const filtered = search ? chains.filter((c) => `${c.chain} ${c.master} ${c.subMaster}`.toLowerCase().includes(search.toLowerCase())) : chains
+  const groups = groupChains(filtered)
   const setMany = (leaves, add) => {
     const values = add ? [...new Set([...selectedChains, ...leaves])] : selectedChains.filter((c) => !leaves.includes(c))
     dispatch({ type: 'SET_ARRAY', field: 'chains', values })
   }
   return (
-    <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-64 overflow-y-auto">
+    <div>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chains…" className={`${inputCls} w-full mb-2`} />
+      <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-64 overflow-y-auto">
       {groups.map((g) => {
         const masterLeaves = g.subs.flatMap((s) => s.leaves)
         const allSel = masterLeaves.every((l) => selectedChains.includes(l))
@@ -96,6 +100,7 @@ export function ChainPicker({ chains, selectedChains, dispatch }) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
@@ -112,87 +117,101 @@ export function ChainsStep({ state, dispatch, refData }) {
   )
 }
 
-// Step: Stores (workflag) — chain-first, mirrors the WF submission app ───────
+// Step: Chains (workflag) — pick chains; all their stores are included ───────
 export function StoresStep({ state, dispatch, refData }) {
-  const [paste, setPaste] = useState('')
-  const [search, setSearch] = useState('')
   const selectedChains = state.chains
   // Live API already returns stores for the selected chains; seed mode filters by chain name.
   const chainStores = apiEnabled() ? refData.stores : refData.stores.filter((s) => selectedChains.includes(s.artsChainName))
-  const visibleStores = chainStores.filter((s) => `${s.storeId} ${s.name} ${s.city} ${s.state}`.toLowerCase().includes(search.toLowerCase()))
+  const idsKey = chainStores.map((s) => s.storeId).join(',')
 
-  const applyPaste = () => {
-    const ids = paste.split(/[\s,\n\t]+/).map((s) => s.trim()).filter(Boolean)
-    const valid = chainStores.filter((s) => ids.includes(s.storeId)).map((s) => s.storeId)
-    dispatch({ type: 'SET_ARRAY', field: 'stores', values: [...new Set([...state.stores, ...valid])] })
-    setPaste('')
-  }
-  const allVisibleSelected = visibleStores.length > 0 && visibleStores.every((s) => state.stores.includes(s.storeId))
-  const toggleAll = () => {
-    const ids = visibleStores.map((s) => s.storeId)
-    dispatch({ type: 'SET_ARRAY', field: 'stores', values: allVisibleSelected ? state.stores.filter((id) => !ids.includes(id)) : [...new Set([...state.stores, ...ids])] })
-  }
+  // Auto-include every store in the selected chains (no individual selection).
+  useEffect(() => {
+    const ids = chainStores.map((s) => s.storeId)
+    if (ids.join(',') !== state.stores.join(',')) dispatch({ type: 'SET_ARRAY', field: 'stores', values: ids })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey])
 
   return (
     <div>
-      {/* Step 1: chains (master > sub-master > chain) */}
-      <label className={labelCls}>1. Browse by Chain</label>
-      <p className="text-xs text-green-4/40 mt-1 mb-2">Select chains, then load their stores.</p>
+      <label className={labelCls}>Select Chains</label>
+      <p className="text-xs text-green-4/40 mt-1 mb-2">All stores in the selected chains are included automatically.</p>
       <ChainPicker chains={refData.chains} selectedChains={selectedChains} dispatch={dispatch} />
-
-      {/* Step 2: stores within selected chains */}
-      {selectedChains.length === 0 ? (
-        <p className="text-sm text-green-4/40 mt-4">Select one or more chains above to load stores.</p>
-      ) : (
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-1">
-            <label className={labelCls}>2. Select Stores</label>
-            <button type="button" onClick={toggleAll} className="text-xs font-bold text-green-3 hover:text-green-4">{allVisibleSelected ? 'Clear all' : 'Select all'}</button>
-          </div>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stores…" className={`${inputCls} w-full mb-2`} />
-          <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-56 overflow-y-auto">
-            {visibleStores.map((s) => (
-              <CheckRow key={s.storeId} title={`${s.storeId} — ${s.name}`} subtitle={`${s.city}, ${s.state} · ${s.artsChainName}`} checked={state.stores.includes(s.storeId)} onChange={() => dispatch({ type: 'TOGGLE_IN_ARRAY', field: 'stores', value: s.storeId })} />
-            ))}
-            {visibleStores.length === 0 && <p className="text-sm text-green-4/40 px-3 py-3">No stores match.</p>}
-          </div>
-          <div className="mt-3">
-            <label className={labelCls}>Or quick paste store IDs</label>
-            <div className="flex gap-2 mt-1">
-              <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="1023, 1044, 2210" className={`${inputCls} flex-1`} />
-              <button type="button" onClick={applyPaste} className="px-3 py-2 rounded-lg bg-green-3 hover:bg-green-4 text-white text-sm font-bold">Add</button>
-            </div>
-          </div>
-        </div>
-      )}
-      <p className="text-xs text-green-4/50 mt-2">{state.stores.length} stores selected across {selectedChains.length} chain{selectedChains.length !== 1 ? 's' : ''}</p>
+      <p className="text-xs text-green-4/50 mt-2">
+        {selectedChains.length === 0
+          ? 'Select one or more chains.'
+          : `${state.stores.length} store${state.stores.length !== 1 ? 's' : ''} across ${selectedChains.length} chain${selectedChains.length !== 1 ? 's' : ''} included`}
+      </p>
     </div>
   )
 }
 
-// Step: Items (workflag — existing items) ───────────────────────────────────
+// Step: Items (workflag) — drill down Category → Brand → Item ────────────────
 export function ItemsStep({ state, dispatch, refData }) {
-  const [paste, setPaste] = useState('')
-  const applyPaste = () => {
-    const ups = paste.split(/[\s,\n\t]+/).map((s) => s.trim().padStart(12, '0')).filter(Boolean)
-    const valid = refData.items.filter((it) => ups.includes(it.itemUpc)).map((it) => it.itemUpc)
-    dispatch({ type: 'SET_ARRAY', field: 'items', values: [...new Set([...state.items, ...valid])] })
-    setPaste('')
-  }
+  const [search, setSearch] = useState('')
+  const [openCat, setOpenCat] = useState({})
+  const [openBrand, setOpenBrand] = useState({})
+
+  const items = useMemo(() => {
+    if (!search) return refData.items
+    const q = search.toLowerCase()
+    return refData.items.filter((it) => `${it.description} ${it.brand} ${it.category} ${it.itemUpc}`.toLowerCase().includes(q))
+  }, [refData.items, search])
+
+  // Category → Brand → [items]
+  const tree = useMemo(() => {
+    const map = {}
+    items.forEach((it) => {
+      const cat = it.category || 'Uncategorized'
+      const brand = it.brand || 'Other'
+      map[cat] = map[cat] || {}
+      map[cat][brand] = map[cat][brand] || []
+      map[cat][brand].push(it)
+    })
+    return map
+  }, [items])
+
+  const searching = !!search
+  const toggleItem = (upc) => dispatch({ type: 'TOGGLE_IN_ARRAY', field: 'items', value: upc })
+  const toggleMany = (upcs, add) => dispatch({ type: 'SET_ARRAY', field: 'items', values: add ? [...new Set([...state.items, ...upcs])] : state.items.filter((u) => !upcs.includes(u)) })
+
   return (
     <div>
       <label className={labelCls}>Select Items</label>
-      <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-60 overflow-y-auto mt-2">
-        {refData.items.map((it) => (
-          <CheckRow key={it.itemUpc} title={it.description} subtitle={`${it.itemUpc} · ${it.brand} · ${it.category}`} checked={state.items.includes(it.itemUpc)} onChange={() => dispatch({ type: 'TOGGLE_IN_ARRAY', field: 'items', value: it.itemUpc })} />
-        ))}
-      </div>
-      <div className="mt-3">
-        <label className={labelCls}>Quick paste UPCs</label>
-        <div className="flex gap-2 mt-1">
-          <input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="040000000017, 037600000013" className={`${inputCls} flex-1`} />
-          <button type="button" onClick={applyPaste} className="px-3 py-2 rounded-lg bg-green-3 hover:bg-green-4 text-white text-sm font-bold">Add</button>
-        </div>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items…" className={`${inputCls} w-full my-2`} />
+      <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-72 overflow-y-auto">
+        {Object.entries(tree).map(([cat, brands]) => {
+          const catUpcs = Object.values(brands).flat().map((it) => it.itemUpc)
+          const catSel = catUpcs.filter((u) => state.items.includes(u)).length
+          const catOpen = searching || openCat[cat]
+          return (
+            <div key={cat}>
+              <button type="button" onClick={() => setOpenCat((o) => ({ ...o, [cat]: !o[cat] }))} className="w-full flex items-center justify-between px-3 py-2 bg-cream/60 text-left">
+                <span className="text-xs font-bold text-green-4 uppercase tracking-wider">{cat}</span>
+                <span className="text-[11px] text-green-4/50">{catSel ? `${catSel}/` : ''}{catUpcs.length} {catOpen ? '▾' : '▸'}</span>
+              </button>
+              {catOpen && Object.entries(brands).map(([brand, list]) => {
+                const upcs = list.map((it) => it.itemUpc)
+                const allSel = upcs.every((u) => state.items.includes(u))
+                const bk = `${cat}|${brand}`
+                const bOpen = searching || openBrand[bk]
+                return (
+                  <div key={bk}>
+                    <div className="flex items-center justify-between px-3 py-1.5 pl-5">
+                      <button type="button" onClick={() => setOpenBrand((o) => ({ ...o, [bk]: !o[bk] }))} className="text-[13px] font-semibold text-green-4 text-left">{brand} <span className="text-green-4/40">({list.length})</span> {bOpen ? '▾' : '▸'}</button>
+                      <button type="button" onClick={() => toggleMany(upcs, !allSel)} className="text-[11px] font-bold text-green-3 hover:text-green-4">{allSel ? 'Clear' : 'All'}</button>
+                    </div>
+                    {bOpen && list.map((it) => (
+                      <div key={it.itemUpc} className="pl-5">
+                        <CheckRow title={it.description} subtitle={`${it.itemUpc}${it.size ? ` · ${it.size}` : ''}`} checked={state.items.includes(it.itemUpc)} onChange={() => toggleItem(it.itemUpc)} />
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+        {Object.keys(tree).length === 0 && <p className="text-sm text-green-4/40 px-3 py-3">No items match.</p>}
       </div>
       <p className="text-xs text-green-4/50 mt-2">{state.items.length} items selected</p>
     </div>
@@ -246,22 +265,6 @@ export function WorkflagDetailsStep({ state, dispatch }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className={labelCls}>Reason Code</label>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {REASON_CODES.map((rc) => (
-            <ChoiceButton key={rc} active={state.reasonCode === rc} onClick={() => dispatch({ type: 'SET', field: 'reasonCode', value: rc })}>{rc}</ChoiceButton>
-          ))}
-        </div>
-      </div>
-      <div>
-        <label className={labelCls}>Frequency</label>
-        <div className="flex flex-wrap gap-2 mt-2">
-          {FREQUENCIES.map((f) => (
-            <ChoiceButton key={f.id} active={state.frequency === f.id} onClick={() => dispatch({ type: 'SET', field: 'frequency', value: f.id })}>{f.label}</ChoiceButton>
-          ))}
-        </div>
-      </div>
-      <div>
         <label className={labelCls}>Date Range</label>
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <input type="date" value={state.startDate} onChange={(e) => dispatch({ type: 'SET', field: 'startDate', value: e.target.value })} className={inputCls} />
@@ -273,10 +276,6 @@ export function WorkflagDetailsStep({ state, dispatch }) {
             <button key={w} type="button" onClick={() => state.startDate && dispatch({ type: 'SET', field: 'endDate', value: addWeeks(state.startDate, w) })} className="px-2.5 py-1 rounded-lg border border-green-4/15 text-green-4/70 text-xs font-bold hover:border-green-2">{w}wk</button>
           ))}
         </div>
-      </div>
-      <div>
-        <label className={labelCls}>Comment</label>
-        <textarea value={state.comment} onChange={(e) => dispatch({ type: 'SET', field: 'comment', value: e.target.value })} rows={2} className={`${inputCls} w-full mt-1`} placeholder="Optional notes" />
       </div>
     </div>
   )

@@ -8,7 +8,7 @@ export default function Wizard({ config, refData: seedRefData, onSubmit, onCance
   const wiz = useWizard({ steps: config.steps, initialState: initialClone })
   const steps = config.steps
   const { state, dispatch, stepIndex, goto, back } = wiz
-  const refData = useReferenceData(state, seedRefData)
+  const refData = useReferenceData(state, seedRefData, config.type)
   const step = steps[stepIndex]
   const isFirst = stepIndex === 0
   const isLast = stepIndex === steps.length - 1

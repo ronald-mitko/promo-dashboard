@@ -34,6 +34,27 @@ export default async function handler(req, res) {
       return res.status(200).json(rows.map((r) => ({ clientId: r.ClientID, name: r.ClientName, teamId })))
     }
 
+    // Authorize chains: full chain universe for a team (new items have no auth yet).
+    // Source = SL_Combined, latest Period, filtered to the team.
+    // NOTE: adjust table/column names below to match your SL_Combined schema.
+    if (resource === 'authChains') {
+      if (!teamId) return res.status(400).json({ error: 'teamId is required' })
+      const rows = await queryRows(
+        `SELECT DISTINCT ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName, StoreArtsChainID
+         FROM SL_Combined
+         WHERE Team = @Team
+           AND Period = (SELECT MAX(Period) FROM SL_Combined WHERE Team = @Team)
+         ORDER BY ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName`,
+        [{ name: 'Team', type: TYPES.VarChar, value: teamId }],
+      )
+      return res.status(200).json(rows.map((r) => ({
+        chain: r.ArtsChainName,
+        subMaster: r.ArtsSubMasterChainName || r.ArtsMasterChainName,
+        master: r.ArtsMasterChainName,
+        chainId: r.StoreArtsChainID != null ? String(r.StoreArtsChainID) : r.ArtsChainName,
+      })))
+    }
+
     if (resource === 'chains') {
       if (!teamId || !clientId) return res.status(400).json({ error: 'teamId and clientId are required' })
       const rows = await queryRows(

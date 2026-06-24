@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { apiEnabled, reference } from '../lib/api'
+import { REQUEST_TYPES } from '../lib/constants'
 
 // Provides reference data to a wizard. When the API is on, fetches each level
 // on demand from Fabric (clients by team → chains by client → stores by selected
 // chains → items by client). When off, returns the passed-in seed unchanged.
-export function useReferenceData(state, seed) {
+// `type` selects the chain source: Authorize pulls the team's full chain universe
+// from SL_Combined; Workflag pulls the client's authorized chains.
+export function useReferenceData(state, seed, type) {
   const enabled = apiEnabled()
   const [teams, setTeams] = useState(seed.teams)
   const [clients, setClients] = useState([])
@@ -27,9 +30,16 @@ export function useReferenceData(state, seed) {
   }, [enabled, teamId])
 
   useEffect(() => {
-    if (!enabled || !teamId || !clientId) { setChains([]); return }
-    reference.chains(teamId, clientId).then(setChains).catch(() => setChains([]))
-  }, [enabled, teamId, clientId])
+    if (!enabled || !teamId) { setChains([]); return }
+    if (type === REQUEST_TYPES.AUTHORIZE) {
+      // Authorize: full team chain universe from SL_Combined (no client needed)
+      reference.authChains(teamId).then(setChains).catch(() => setChains([]))
+    } else if (clientId) {
+      reference.chains(teamId, clientId).then(setChains).catch(() => setChains([]))
+    } else {
+      setChains([])
+    }
+  }, [enabled, type, teamId, clientId])
 
   // Stores: map selected chain names → chainIds, then fetch.
   useEffect(() => {

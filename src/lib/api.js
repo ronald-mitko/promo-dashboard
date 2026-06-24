@@ -18,6 +18,7 @@ export const reference = {
   teams: () => getJson('/api/reference?resource=teams'),
   clients: (teamId) => getJson(`/api/reference?resource=clients&teamId=${encodeURIComponent(teamId)}`),
   chains: (teamId, clientId) => getJson(`/api/reference?resource=chains&teamId=${encodeURIComponent(teamId)}&clientId=${encodeURIComponent(clientId)}`),
+  authChains: (teamId) => getJson(`/api/reference?resource=authChains&teamId=${encodeURIComponent(teamId)}`),
   stores: (teamId, clientId, chainIds) => getJson(`/api/reference?resource=stores&teamId=${encodeURIComponent(teamId)}&clientId=${encodeURIComponent(clientId)}&chainId=${encodeURIComponent((chainIds || []).join(','))}`),
   items: (teamId, clientId, chainIds = []) => getJson(`/api/reference?resource=items&teamId=${encodeURIComponent(teamId)}&clientId=${encodeURIComponent(clientId)}${chainIds.length ? `&chainId=${encodeURIComponent(chainIds.join(','))}` : ''}`),
 }
