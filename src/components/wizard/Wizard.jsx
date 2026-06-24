@@ -1,11 +1,14 @@
 import { useWizard } from '../../hooks/useWizard'
+import { useReferenceData } from '../../hooks/useReferenceData'
 import ProgressBar from './ProgressBar'
 
 // Generic multi-step wizard host. Driven by a requestConfig entry.
-export default function Wizard({ config, refData, onSubmit, onCancel, initialClone }) {
+// `refData` is the seed fallback; live Fabric data is fetched when the API is on.
+export default function Wizard({ config, refData: seedRefData, onSubmit, onCancel, initialClone }) {
   const wiz = useWizard({ steps: config.steps, initialState: initialClone })
   const steps = config.steps
   const { state, dispatch, stepIndex, goto, back } = wiz
+  const refData = useReferenceData(state, seedRefData)
   const step = steps[stepIndex]
   const isFirst = stepIndex === 0
   const isLast = stepIndex === steps.length - 1

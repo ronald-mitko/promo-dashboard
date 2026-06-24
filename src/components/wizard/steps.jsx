@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { REASON_CODES, FREQUENCIES, DATE_PRESETS, NEW_ITEM_FIELDS } from '../../lib/constants'
 import { formatDateRange } from '../../lib/helpers'
+import { apiEnabled } from '../../lib/api'
 
 // Shared little UI helpers ───────────────────────────────────────────────
 const labelCls = 'text-xs font-semibold text-green-4/60 uppercase tracking-wider'
@@ -116,7 +117,8 @@ export function StoresStep({ state, dispatch, refData }) {
   const [paste, setPaste] = useState('')
   const [search, setSearch] = useState('')
   const selectedChains = state.chains
-  const chainStores = refData.stores.filter((s) => selectedChains.includes(s.artsChainName))
+  // Live API already returns stores for the selected chains; seed mode filters by chain name.
+  const chainStores = apiEnabled() ? refData.stores : refData.stores.filter((s) => selectedChains.includes(s.artsChainName))
   const visibleStores = chainStores.filter((s) => `${s.storeId} ${s.name} ${s.city} ${s.state}`.toLowerCase().includes(search.toLowerCase()))
 
   const applyPaste = () => {
