@@ -4,14 +4,25 @@ import { CalendarIcon, TrendUpIcon, TagIcon, CloseIcon, StoreIcon, ClipboardIcon
 import StatusBadge, { PROMO_TYPE_STYLES } from '../components/StatusBadge'
 
 // Calendar timeline view (retailer rows x 6 weeks) + promo detail modal.
-// Extracted from App.jsx unchanged, with its week-math helpers.
+// Extracted from App.jsx, with its week-math helpers.
+
+// Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Dates here are
+// built at local midnight, so toISOString() (UTC) would shift them back a day
+// for users west of UTC and mis-bucket promos by one week. Always compare/emit
+// in local terms to match the local-midnight construction.
+function toLocalYMD(dt) {
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
 function computeWeeks(promotions) {
   let earliest
   if (promotions.length > 0) {
     earliest = promotions.reduce((min, p) => p.start_date < min ? p.start_date : min, promotions[0].start_date)
   } else {
-    earliest = new Date().toISOString().slice(0, 10)
+    earliest = toLocalYMD(new Date())
   }
   // Find the Monday on or before the earliest date
   const d = new Date(earliest + 'T00:00:00')
@@ -24,9 +35,8 @@ function computeWeeks(promotions) {
     start.setDate(d.getDate() + i * 7)
     const end = new Date(start)
     end.setDate(start.getDate() + 6)
-    const fmt = (dt) => dt.toISOString().slice(0, 10)
     const label = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    weeks.push({ start: fmt(start), end: fmt(end), label })
+    weeks.push({ start: toLocalYMD(start), end: toLocalYMD(end), label })
   }
   return weeks
 }

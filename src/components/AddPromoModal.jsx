@@ -77,7 +77,10 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
   const generatePromoId = (retailer, promoType) => {
     const abbrev = { Walmart: 'WMT', Target: 'TGT', Kroger: 'KRG', PetSmart: 'PET' }
     const typeAbbrev = { TPR: 'TPR', 'Feature+Display': 'FD', 'Digital Coupon': 'DIG', Shipper: 'SHP' }
-    return `${abbrev[retailer] || 'GEN'}-${typeAbbrev[promoType] || 'PRO'}-${Date.now().toString(36).toUpperCase()}`
+    // Date.now() alone collides when called in a tight loop (bulk CSV/Excel import):
+    // every row resolves the same millisecond. Add a random suffix so each id is unique.
+    const unique = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`.toUpperCase()
+    return `${abbrev[retailer] || 'GEN'}-${typeAbbrev[promoType] || 'PRO'}-${unique}`
   }
 
   // computeStatus imported from ./lib/helpers (single source, uses TODO)

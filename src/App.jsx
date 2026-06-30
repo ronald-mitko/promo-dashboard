@@ -203,15 +203,18 @@ const SEED_PROMOTIONS = [
 // ─────────────────────────────────────────────
 // formatDate / formatDateRange / formatCurrency imported from ./lib/helpers
 
-// Generate brand colors dynamically from promo data
+// Generate brand colors dynamically from promo data.
+// NOTE: brand colors must be applied via inline `style` (e.g. backgroundColor),
+// NOT Tailwind classes. Tailwind's JIT only emits CSS for class names that
+// appear literally in source; interpolated classes like `bg-[${color}]/15`
+// are never generated, so they render as no-ops. We expose the raw hex only.
 const BRAND_COLOR_PALETTE = ['#FF9527', '#007B4E', '#00C48D', '#5B8DEF', '#E74C8B', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#6366F1']
 
 function getBrandColors(promotions) {
   const brands = [...new Set(promotions.map(p => p.brand))].sort()
   const colors = {}
   brands.forEach((brand, i) => {
-    const color = BRAND_COLOR_PALETTE[i % BRAND_COLOR_PALETTE.length]
-    colors[brand] = { bg: `bg-[${color}]/15`, text: `text-[${color}]`, bar: color }
+    colors[brand] = { bar: BRAND_COLOR_PALETTE[i % BRAND_COLOR_PALETTE.length] }
   })
   return colors
 }

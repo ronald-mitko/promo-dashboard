@@ -13,7 +13,9 @@ export default function PromoCard({ promo, index, role, onDelete, onSubmit, onEd
   const [expanded, setExpanded] = useState(false)
   const [checkedItems, setCheckedItems] = useState({})
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const brandStyle = brandColors[promo.brand] || { bg: 'bg-gray-100', text: 'text-gray-700', bar: '#007B4E' }
+  // Brand color is applied via inline style (Tailwind can't JIT interpolated classes).
+  // `${hex}26` appends ~15% alpha to the 6-digit hex for the pill background.
+  const brandColor = brandColors[promo.brand]?.bar || '#007B4E'
   const savings = ((1 - promo.promo_price / promo.retail_price) * 100).toFixed(0)
 
   const toggleCheck = (i) => {
@@ -81,7 +83,7 @@ export default function PromoCard({ promo, index, role, onDelete, onSubmit, onEd
         <h3 className="text-base font-bold text-green-4 mb-2 leading-snug">{promo.product}</h3>
 
         {/* Brand pill */}
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${brandStyle.bg} ${brandStyle.text} mb-3`}>
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold mb-3" style={{ backgroundColor: `${brandColor}26`, color: brandColor }}>
           {promo.brand}
         </span>
 
