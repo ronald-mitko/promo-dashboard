@@ -7,6 +7,12 @@ import RequestButtons from '../components/RequestButtons'
 
 const fmtTs = (iso) => { try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '—' } }
 
+// Latest rejection reason from approval history.
+function rejectionReason(raw) {
+  const rej = [...(raw.approval_history || [])].reverse().find((h) => h.to === 'rejected' && h.note)
+  return rej ? rej.note : null
+}
+
 // Build label/value detail rows for the modal.
 function promoDetail(p) {
   return [
@@ -58,6 +64,7 @@ export default function MySubmissionsView({ promotions, requests, rcsms, onAddRe
       kind: 'Priority', label: p.product,
       meta: `${p.retailer} · ${p.promo_type} · ${formatDateRange(p.start_date, p.end_date)}`,
       status: p.submission_status, routed: rcsmName(p.routed_rcsm, rcsms),
+      reason: p.submission_status === 'rejected' ? rejectionReason(p) : null,
       linked: { promo_id: p.promo_id, retailer: p.retailer, chain: p.chain, brand: p.brand, product: p.product },
     })),
     ...requests.map((r) => ({
@@ -65,6 +72,7 @@ export default function MySubmissionsView({ promotions, requests, rcsms, onAddRe
       kind: REQUEST_TYPE_LABELS[r.type] || r.type, label: r.clientName || '—',
       meta: [r.storeCount && `${r.storeCount} stores`, r.itemCount && `${r.itemCount} items`, r.newItems?.length && `${r.newItems.length} new items`].filter(Boolean).join(' · '),
       status: r.status, routed: rcsmName(r.routed_rcsm, rcsms),
+      reason: r.status === 'rejected' ? rejectionReason(r) : null,
       linked: { promo_id: r.requestId, retailer: r.retailer, chain: r.masterChain || r.chain, brand: r.clientName, product: `${REQUEST_TYPE_LABELS[r.type] || r.type} — ${r.clientName || ''}` },
     })),
   ]
@@ -97,7 +105,10 @@ export default function MySubmissionsView({ promotions, requests, rcsms, onAddRe
               {rows.map((row) => (
                 <tr key={row.key} onClick={() => setSelected(row)} className="border-b border-green-4/5 last:border-0 hover:bg-cream/50 transition-colors cursor-pointer">
                   <td className="px-4 py-3 font-semibold text-green-3 whitespace-nowrap">{row.kind}</td>
-                  <td className="px-4 py-3 font-medium text-green-4">{row.label}</td>
+                  <td className="px-4 py-3 font-medium text-green-4">
+                    {row.label}
+                    {row.reason && <div className="text-[11px] font-normal text-red-600 mt-0.5">Rejected: {row.reason}</div>}
+                  </td>
                   <td className="px-4 py-3 text-green-4/60">{row.meta}</td>
                   <td className="px-4 py-3 text-green-4/70 whitespace-nowrap">{row.routed}</td>
                   <td className="px-4 py-3"><RequestStatusBadge status={row.status} /></td>

@@ -8,6 +8,7 @@ export default function RequestList({ requests, onClone, onAddRequest }) {
     return <div className="text-center py-12 text-sm text-green-4/40 bg-white rounded-2xl border border-green-4/8">No requests yet. Click “New request” to build one.</div>
   }
   const fmt = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return '—' } }
+  const rejectionReason = (r) => { const h = [...(r.approval_history || [])].reverse().find((x) => x.to === 'rejected' && x.note); return h ? h.note : null }
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-green-4/8 overflow-hidden">
       <div className="overflow-x-auto">
@@ -22,10 +23,15 @@ export default function RequestList({ requests, onClone, onAddRequest }) {
             </tr>
           </thead>
           <tbody>
-            {requests.map((r) => (
+            {requests.map((r) => {
+              const reason = r.status === 'rejected' ? rejectionReason(r) : null
+              return (
               <tr key={r.requestId} className="border-b border-green-4/5 last:border-0 hover:bg-cream/50 transition-colors">
                 <td className="px-4 py-3 text-green-4/70 whitespace-nowrap">{fmt(r.submittedAt)}</td>
-                <td className="px-4 py-3 font-medium text-green-4">{r.clientName || '—'}</td>
+                <td className="px-4 py-3 font-medium text-green-4">
+                  {r.clientName || '—'}
+                  {reason && <div className="text-[11px] font-normal text-red-600 mt-0.5">Rejected: {reason}</div>}
+                </td>
                 <td className="px-4 py-3 text-green-4/60">
                   {[r.storeCount && `${r.storeCount} stores`, r.itemCount && `${r.itemCount} items`, r.newItems?.length && `${r.newItems.length} new items`, r.chains?.length && `${r.chains.length} chains`].filter(Boolean).join(' · ') || '—'}
                 </td>
@@ -40,11 +46,12 @@ export default function RequestList({ requests, onClone, onAddRequest }) {
                         linkedPromo={{ promo_id: r.requestId, retailer: r.retailer, chain: r.masterChain || r.chain, brand: r.clientName, product: `${REQUEST_TYPE_LABELS[r.type] || r.type} — ${r.clientName || ''}` }}
                       />
                     )}
-                    {onClone && <button onClick={() => onClone(r)} className="text-green-3 hover:text-green-4 text-xs font-bold">Clone</button>}
+                    {onClone && <button onClick={() => onClone(r)} className="text-green-3 hover:text-green-4 text-xs font-bold">{reason ? 'Edit & resubmit' : 'Clone'}</button>}
                   </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

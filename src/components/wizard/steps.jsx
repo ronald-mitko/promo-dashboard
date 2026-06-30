@@ -63,22 +63,20 @@ export function ClientStep({ state, dispatch, refData }) {
   )
 }
 
-// Group leaf chains by master > sub-master (mirrors DB ARTS chain levels).
+// Group leaf chains by master chain only (sub-master collapsed).
 function groupChains(chains) {
   const map = {}
   chains.forEach((c) => {
-    map[c.master] = map[c.master] || {}
-    map[c.master][c.subMaster] = map[c.master][c.subMaster] || []
-    if (!map[c.master][c.subMaster].includes(c.chain)) map[c.master][c.subMaster].push(c.chain)
+    map[c.master] = map[c.master] || []
+    if (!map[c.master].includes(c.chain)) map[c.master].push(c.chain)
   })
-  return Object.entries(map).map(([master, subs]) => ({ master, subs: Object.entries(subs).map(([sub, leaves]) => ({ sub, leaves })) }))
+  return Object.entries(map).map(([master, leaves]) => ({ master, leaves }))
 }
 
-// Hierarchical chain selector: master headers (with select-all), sub-master
-// sub-headers, and leaf-chain checkboxes. Selection is at the leaf-chain level.
+// Chain selector: MasterChain header (with select-all) → Chain checkboxes.
 export function ChainPicker({ chains, selectedChains, dispatch }) {
   const [search, setSearch] = useState('')
-  const filtered = search ? chains.filter((c) => `${c.chain} ${c.master} ${c.subMaster}`.toLowerCase().includes(search.toLowerCase())) : chains
+  const filtered = search ? chains.filter((c) => `${c.chain} ${c.master}`.toLowerCase().includes(search.toLowerCase())) : chains
   const groups = groupChains(filtered)
   const setMany = (leaves, add) => {
     const values = add ? [...new Set([...selectedChains, ...leaves])] : selectedChains.filter((c) => !leaves.includes(c))
@@ -89,21 +87,15 @@ export function ChainPicker({ chains, selectedChains, dispatch }) {
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chains…" className={`${inputCls} w-full mb-2`} />
       <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-64 overflow-y-auto">
       {groups.map((g) => {
-        const masterLeaves = g.subs.flatMap((s) => s.leaves)
-        const allSel = masterLeaves.every((l) => selectedChains.includes(l))
+        const allSel = g.leaves.every((l) => selectedChains.includes(l))
         return (
           <div key={g.master}>
             <div className="flex items-center justify-between px-3 py-2 bg-cream/60">
               <span className="text-xs font-bold text-green-4 uppercase tracking-wider">{g.master}</span>
-              <button type="button" onClick={() => setMany(masterLeaves, !allSel)} className="text-[11px] font-bold text-green-3 hover:text-green-4">{allSel ? 'Clear' : 'Select all'}</button>
+              <button type="button" onClick={() => setMany(g.leaves, !allSel)} className="text-[11px] font-bold text-green-3 hover:text-green-4">{allSel ? 'Clear' : 'Select all'}</button>
             </div>
-            {g.subs.map((s) => (
-              <div key={s.sub}>
-                {s.sub !== s.leaves[0] && <div className="px-3 pt-1.5 text-[11px] font-semibold text-green-4/40 uppercase tracking-wider">{s.sub}</div>}
-                {s.leaves.map((ch) => (
-                  <CheckRow key={ch} title={ch} checked={selectedChains.includes(ch)} onChange={() => dispatch({ type: 'TOGGLE_IN_ARRAY', field: 'chains', value: ch })} />
-                ))}
-              </div>
+            {g.leaves.map((ch) => (
+              <CheckRow key={ch} title={ch} checked={selectedChains.includes(ch)} onChange={() => dispatch({ type: 'TOGGLE_IN_ARRAY', field: 'chains', value: ch })} />
             ))}
           </div>
         )

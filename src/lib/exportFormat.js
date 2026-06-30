@@ -58,11 +58,20 @@ function buildGeneric(req) {
   return { filename: `${(req.type || 'request').toUpperCase()}_${req.requestId || 'export'}.csv`, content: toCsv(rows) }
 }
 
-export function buildExport(req) {
-  switch (req.type) {
-    case REQUEST_TYPES.WORKFLAG: return buildWorkflag(req)
-    case REQUEST_TYPES.AUTHORIZE: return buildAuthorize(req)
-    default: return buildGeneric(req)
+// Priority (promotion): one row of the entered detail.
+function buildPriority(p) {
+  const header = ['Client', 'Retailer', 'Chains', 'Product', 'Brand', 'Category', 'PromoType', 'Start', 'End', 'Mechanic', 'RetailPrice', 'PromoPrice', 'Display']
+  const row = [p.clientName || '', p.retailer || '', (p.chains || []).join('; '), p.product, p.brand, p.category, p.promo_type, mmddyyyy(p.start_date), mmddyyyy(p.end_date), p.mechanic, p.retail_price, p.promo_price, p.display]
+  return { filename: `PRIORITY_${p.promo_id || 'export'}.csv`, content: toCsv([header, row]) }
+}
+
+export function buildExport(rec) {
+  // Promotions (priorities) have a promo_id / kind 'promotion'; requests have a type.
+  if (rec.kind === 'promotion' || rec.promo_id) return buildPriority(rec)
+  switch (rec.type) {
+    case REQUEST_TYPES.WORKFLAG: return buildWorkflag(rec)
+    case REQUEST_TYPES.AUTHORIZE: return buildAuthorize(rec)
+    default: return buildGeneric(rec)
   }
 }
 
