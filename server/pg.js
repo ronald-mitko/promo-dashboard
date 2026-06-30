@@ -63,6 +63,25 @@ export async function upsertSubmission({ id, kind, type, status, routed_rcsm, su
   return { id }
 }
 
+// ── Shared app config (e.g. RCSM ↔ chain ownership) as JSON by key ──
+let configReady = false
+export async function ensureConfigSchema() {
+  if (configReady) return
+  await sql`CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`
+  configReady = true
+}
+export async function getConfig(key) {
+  await ensureConfigSchema()
+  const { rows } = await sql`SELECT value FROM app_config WHERE key = ${key}`
+  return rows[0] ? rows[0].value : null
+}
+export async function setConfig(key, value) {
+  await ensureConfigSchema()
+  await sql`INSERT INTO app_config (key, value) VALUES (${key}, ${JSON.stringify(value)}::jsonb)
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`
+  return { key }
+}
+
 // Patch status/routing/history (approve, reject, submit).
 export async function patchSubmission(id, { status, routed_rcsm, history, payload }) {
   await ensureSchema()

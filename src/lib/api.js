@@ -35,6 +35,20 @@ export async function saveSubmission(rec) {
   return r.json()
 }
 
+// ── Shared config (RCSM ownership, etc.) ──
+export async function getConfig(key) {
+  const r = await fetch(`/api/config?key=${encodeURIComponent(key)}`)
+  if (!r.ok) throw new Error(`config → ${r.status}`)
+  const j = await r.json()
+  return j.value
+}
+
+export async function saveConfig(key, value) {
+  const r = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) })
+  if (!r.ok) throw new Error(`saveConfig → ${r.status}`)
+  return r.json()
+}
+
 // Map an app object to the stored submission record.
 export function toSubmissionRecord(obj, kind) {
   if (kind === 'promotion') {

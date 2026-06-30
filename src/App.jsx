@@ -7,7 +7,7 @@ import { loadInitialSession, withPromoDefaultsAll, withPromoDefaults, runMigrati
 import { formatDate, formatDateRange, formatCurrency } from './lib/helpers'
 import { resolveRcsmForRecord, rcsmName } from './lib/routing'
 import { downloadExport } from './lib/exportFormat'
-import { apiEnabled, listSubmissions, saveSubmission, toSubmissionRecord } from './lib/api'
+import { apiEnabled, listSubmissions, saveSubmission, toSubmissionRecord, getConfig, saveConfig } from './lib/api'
 import { useReferenceData } from './hooks/useReferenceData'
 import { ChainPicker } from './components/wizard/steps'
 import { SUBMISSION_STATUS, REQUEST_TYPES, PRIORITY_TYPES } from './lib/constants'
@@ -17,6 +17,7 @@ import StartView from './views/StartView'
 import PrioritiesListView from './views/PrioritiesListView'
 import InboxView from './views/InboxView'
 import MySubmissionsView from './views/MySubmissionsView'
+import RcsmAdminView from './views/RcsmAdminView'
 import WorkflowSection from './views/workflows/WorkflowSection'
 
 // Run additive localStorage migration once at module load.
@@ -2148,6 +2149,16 @@ function App() {
     if (apiEnabled() && apiLoadedRef.current) requests.forEach((r) => saveSubmission(toSubmissionRecord(r, 'request')).catch(() => {}))
   }, [requests])
 
+  // Shared RCSM ↔ chain ownership config (Postgres) so routing is consistent across users
+  const rcsmsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!apiEnabled()) { rcsmsLoadedRef.current = true; return }
+    getConfig('rcsms').then((v) => { if (Array.isArray(v) && v.length) setRcsms(v) }).catch(() => {}).finally(() => { rcsmsLoadedRef.current = true })
+  }, [])
+  useEffect(() => {
+    if (apiEnabled() && rcsmsLoadedRef.current) saveConfig('rcsms', rcsms).catch(() => {})
+  }, [rcsms])
+
   const handleAddPromo = useCallback((promo) => {
     setPromotions(prev => [withPromoDefaults(promo), ...prev])
   }, [])
@@ -2229,6 +2240,7 @@ function App() {
         { id: 'inbox', label: 'Inbox', icon: <ClipboardIcon className="w-4 h-4"/> },
         { id: 'promotions', label: 'Priorities', icon: <TagIcon className="w-4 h-4"/> },
         { id: 'calendar', label: 'Promo Calendar', icon: <CalendarIcon className="w-4 h-4"/> },
+        { id: 'rcsms', label: 'RCSMs', icon: <CheckCircleIcon className="w-4 h-4"/> },
       ]
     : [
         { id: 'start', label: 'Home', icon: <StoreIcon className="w-4 h-4"/> },
@@ -2237,6 +2249,7 @@ function App() {
         { id: 'promodash', label: 'Promo Dashboard', icon: <FireIcon className="w-4 h-4"/> },
         { id: 'calendar', label: 'Promo Calendar', icon: <CalendarIcon className="w-4 h-4"/> },
         { id: 'submissions', label: 'My Submissions', icon: <ClipboardIcon className="w-4 h-4"/> },
+        { id: 'rcsms', label: 'RCSMs', icon: <CheckCircleIcon className="w-4 h-4"/> },
       ]
 
   return (
@@ -2440,6 +2453,7 @@ function App() {
             {activeTab === 'workflag' && 'Home Location Check'}
             {activeTab === 'calendar' && 'Promo Calendar'}
             {activeTab === 'submissions' && 'My Submissions'}
+            {activeTab === 'rcsms' && 'Manage RCSMs'}
           </h2>
           <p className="text-sm text-green-4/50 mt-0.5">
             {activeTab === 'start' && 'What would you like to do?'}
@@ -2450,6 +2464,7 @@ function App() {
             {activeTab === 'workflag' && 'Direct the field to verify the home shelf location of specific products'}
             {activeTab === 'calendar' && 'Timeline view of all promotional events across retailers'}
             {activeTab === 'submissions' && 'Track the status of everything you have submitted'}
+            {activeTab === 'rcsms' && 'Define RCSMs and assign the clients they own (drives routing)'}
           </p>
         </div>
 
@@ -2462,6 +2477,7 @@ function App() {
         {activeTab === 'authorize' && <WorkflowSection type={REQUEST_TYPES.AUTHORIZE} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
         {activeTab === 'workflag' && <WorkflowSection type={REQUEST_TYPES.WORKFLAG} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
         {activeTab === 'submissions' && <MySubmissionsView promotions={promotions} requests={requests} rcsms={rcsms} onAddRequest={handleAddRequest}/>}
+        {activeTab === 'rcsms' && <RcsmAdminView rcsms={rcsms} setRcsms={setRcsms} seedRefData={refData}/>}
       </main>
 
       {/* Floating Action Button (HQ only) */}

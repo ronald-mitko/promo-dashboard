@@ -10,14 +10,12 @@ export function resolveRcsmId(accountKey, rcsms) {
   return hit ? hit.rcsmId : null
 }
 
-// Resolve the owning RCSM for a promotion/request that carries chain + retailer.
+// RCSMs own clients, so a submission routes to the RCSM who owns its client.
 export function resolveRcsmForRecord(record, rcsms) {
   if (!record) return null
   return (
-    resolveRcsmId(record.masterChain, rcsms) ||
-    resolveRcsmId(record.chain, rcsms) ||
-    resolveRcsmId(record.retailer, rcsms) ||
     resolveRcsmId(record.clientName, rcsms) ||
+    resolveRcsmId(record.clientId, rcsms) ||
     null
   )
 }

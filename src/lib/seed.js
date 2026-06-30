@@ -5,10 +5,12 @@
 
 // Retail Client Services Managers. `accounts` lists the chains each RCSM owns;
 // HQ submissions route to the RCSM whose accounts include the submission's chain.
+// `accounts` lists the CLIENT names each RCSM owns; submissions route to the
+// RCSM whose accounts include the submission's client.
 export const SEED_RCSMS = [
-  { rcsmId: 'rcsm_dana', name: 'Dana Whitfield', accounts: ['Walmart Inc.', 'Target Corp.', 'Meijer Inc.'] },
-  { rcsmId: 'rcsm_marcus', name: 'Marcus Lee', accounts: ['Kroger Co.', 'Albertsons Cos.'] },
-  { rcsmId: 'rcsm_priya', name: 'Priya Nair', accounts: ['Publix Super Markets', 'Wegmans Food Markets'] },
+  { rcsmId: 'rcsm_dana', name: 'Dana Whitfield', accounts: ['Mars', 'Hormel'] },
+  { rcsmId: 'rcsm_marcus', name: 'Marcus Lee', accounts: ['Church & Dwight', 'Hain Celestial'] },
+  { rcsmId: 'rcsm_priya', name: 'Priya Nair', accounts: ['Planet Oat', 'Tropicana'] },
 ]
 
 // ── Wizard reference data (mirrors the workflag-submission team→client→… flow) ──
