@@ -1,14 +1,7 @@
-import { formatDateRange } from '../lib/helpers'
+import { formatDateRange, latestRejectionReason } from '../lib/helpers'
 import { PRIORITY_TYPE_LABELS } from '../lib/constants'
 import RequestStatusBadge from '../components/RequestStatusBadge'
 import RequestButtons from '../components/RequestButtons'
-
-// Latest rejection reason from the approval history, if the item is rejected.
-function rejectionReason(p) {
-  if (p.submission_status !== 'rejected') return null
-  const rej = [...(p.approval_history || [])].reverse().find((h) => h.to === 'rejected' && h.note)
-  return rej ? rej.note : null
-}
 
 // Simple list of entered priorities with basic details + a per-row reporting request.
 export default function PrioritiesListView({ promotions, role, onSubmitPromo, onEditPromo, onAddRequest, onAddPriority }) {
@@ -32,7 +25,7 @@ export default function PrioritiesListView({ promotions, role, onSubmitPromo, on
       ) : (
         <div className="space-y-3">
           {promotions.map((p) => {
-            const reason = rejectionReason(p)
+            const reason = p.submission_status === 'rejected' ? latestRejectionReason(p) : null
             const editable = p.submission_status === 'draft' || p.submission_status === 'rejected'
             return (
             <div key={p.promo_id} className="bg-white rounded-2xl shadow-sm border border-green-4/8 p-4">

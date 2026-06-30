@@ -1,17 +1,11 @@
 import { useState } from 'react'
-import { formatDateRange, formatDate } from '../lib/helpers'
+import { formatDateRange, formatTimestamp, latestRejectionReason } from '../lib/helpers'
 import { REQUEST_TYPES, REQUEST_TYPE_LABELS, PRIORITY_TYPE_LABELS } from '../lib/constants'
 import { rcsmName } from '../lib/routing'
 import RequestStatusBadge from '../components/RequestStatusBadge'
 import RequestButtons from '../components/RequestButtons'
 
-const fmtTs = (iso) => { try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '—' } }
-
-// Latest rejection reason from approval history.
-function rejectionReason(raw) {
-  const rej = [...(raw.approval_history || [])].reverse().find((h) => h.to === 'rejected' && h.note)
-  return rej ? rej.note : null
-}
+const fmtTs = formatTimestamp
 
 // Build label/value detail rows for the modal.
 function promoDetail(p) {
@@ -64,7 +58,7 @@ export default function MySubmissionsView({ promotions, requests, rcsms, onAddRe
       kind: 'Priority', label: p.product,
       meta: `${p.retailer} · ${p.promo_type} · ${formatDateRange(p.start_date, p.end_date)}`,
       status: p.submission_status, routed: rcsmName(p.routed_rcsm, rcsms),
-      reason: p.submission_status === 'rejected' ? rejectionReason(p) : null,
+      reason: p.submission_status === 'rejected' ? latestRejectionReason(p) : null,
       linked: { promo_id: p.promo_id, retailer: p.retailer, chain: p.chain, brand: p.brand, product: p.product },
     })),
     ...requests.map((r) => ({
@@ -72,7 +66,7 @@ export default function MySubmissionsView({ promotions, requests, rcsms, onAddRe
       kind: REQUEST_TYPE_LABELS[r.type] || r.type, label: r.clientName || '—',
       meta: [r.storeCount && `${r.storeCount} stores`, r.itemCount && `${r.itemCount} items`, r.newItems?.length && `${r.newItems.length} new items`].filter(Boolean).join(' · '),
       status: r.status, routed: rcsmName(r.routed_rcsm, rcsms),
-      reason: r.status === 'rejected' ? rejectionReason(r) : null,
+      reason: r.status === 'rejected' ? latestRejectionReason(r) : null,
       linked: { promo_id: r.requestId, retailer: r.retailer, chain: r.masterChain || r.chain, brand: r.clientName, product: `${REQUEST_TYPE_LABELS[r.type] || r.type} — ${r.clientName || ''}` },
     })),
   ]

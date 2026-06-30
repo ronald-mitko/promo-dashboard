@@ -1,6 +1,7 @@
 import RequestStatusBadge from '../RequestStatusBadge'
 import RequestButtons from '../RequestButtons'
 import { REQUEST_TYPES, REQUEST_TYPE_LABELS } from '../../lib/constants'
+import { latestRejectionReason } from '../../lib/helpers'
 
 // Table of requests for one type, with a Clone action + per-row reporting (not for authorize).
 export default function RequestList({ requests, onClone, onAddRequest }) {
@@ -8,7 +9,6 @@ export default function RequestList({ requests, onClone, onAddRequest }) {
     return <div className="text-center py-12 text-sm text-green-4/40 bg-white rounded-2xl border border-green-4/8">No requests yet. Click “New request” to build one.</div>
   }
   const fmt = (iso) => { try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) } catch { return '—' } }
-  const rejectionReason = (r) => { const h = [...(r.approval_history || [])].reverse().find((x) => x.to === 'rejected' && x.note); return h ? h.note : null }
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-green-4/8 overflow-hidden">
       <div className="overflow-x-auto">
@@ -24,7 +24,7 @@ export default function RequestList({ requests, onClone, onAddRequest }) {
           </thead>
           <tbody>
             {requests.map((r) => {
-              const reason = r.status === 'rejected' ? rejectionReason(r) : null
+              const reason = r.status === 'rejected' ? latestRejectionReason(r) : null
               return (
               <tr key={r.requestId} className="border-b border-green-4/5 last:border-0 hover:bg-cream/50 transition-colors">
                 <td className="px-4 py-3 text-green-4/70 whitespace-nowrap">{fmt(r.submittedAt)}</td>

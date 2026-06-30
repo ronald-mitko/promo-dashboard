@@ -4,7 +4,7 @@ import { useLocalStorageState } from './hooks/useLocalStorageState'
 import { STORAGE_KEYS, ROLES, ROLE_LABELS } from './lib/constants'
 import { SEED_RCSMS, SEED_TEAMS, SEED_CLIENTS, SEED_STORES, SEED_ITEMS } from './lib/seed'
 import { loadInitialSession, withPromoDefaultsAll, withPromoDefaults, runMigration, genId } from './lib/storage'
-import { formatDate, formatDateRange, formatCurrency } from './lib/helpers'
+import { formatDate, formatDateRange, formatCurrency, computeStatus } from './lib/helpers'
 import { resolveRcsmForRecord, rcsmName } from './lib/routing'
 import { downloadExport } from './lib/exportFormat'
 import { apiEnabled, listSubmissions, saveSubmission, toSubmissionRecord, getConfig, saveConfig } from './lib/api'
@@ -1319,12 +1319,7 @@ function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpd
     return `${abbrev[retailer] || 'GEN'}-${typeAbbrev[promoType] || 'PRO'}-${Date.now().toString(36).toUpperCase()}`
   }
 
-  const computeStatus = (startDate, endDate) => {
-    const today = '2026-04-08'
-    if (startDate <= today && endDate >= today) return 'active'
-    if (startDate > today) return 'upcoming'
-    return 'ended'
-  }
+  // computeStatus imported from ./lib/helpers (single source, uses TODO)
 
   // On open: prefill from the edited promo, or apply the chosen priority type for a new entry
   useEffect(() => {
@@ -2131,22 +2126,40 @@ function App() {
   }, [promotions])
 
   // ── Cloud persistence (Vercel Postgres) when VITE_API=1; else localStorage only ──
+  // Per-record content signatures so we only POST records that actually changed,
+  // instead of re-uploading the whole collection on every state change.
   const apiLoadedRef = useRef(false)
+  const savedPromoSig = useRef({})
+  const savedReqSig = useRef({})
   useEffect(() => {
     if (!apiEnabled()) { apiLoadedRef.current = true; return }
     listSubmissions()
       .then((recs) => {
-        setPromotions(recs.filter((r) => r.kind === 'promotion').map(withPromoDefaults))
-        setRequests(recs.filter((r) => r.kind === 'request'))
+        const promos = recs.filter((r) => r.kind === 'promotion').map(withPromoDefaults)
+        const reqs = recs.filter((r) => r.kind === 'request')
+        promos.forEach((p) => { savedPromoSig.current[p.promo_id] = JSON.stringify(toSubmissionRecord(p, 'promotion')) })
+        reqs.forEach((r) => { savedReqSig.current[r.requestId] = JSON.stringify(toSubmissionRecord(r, 'request')) })
+        setPromotions(promos)
+        setRequests(reqs)
       })
       .catch(() => { /* fall back to local state */ })
       .finally(() => { apiLoadedRef.current = true })
   }, [])
   useEffect(() => {
-    if (apiEnabled() && apiLoadedRef.current) promotions.forEach((p) => saveSubmission(toSubmissionRecord(p, 'promotion')).catch(() => {}))
+    if (!apiEnabled() || !apiLoadedRef.current) return
+    promotions.forEach((p) => {
+      const rec = toSubmissionRecord(p, 'promotion')
+      const sig = JSON.stringify(rec)
+      if (savedPromoSig.current[p.promo_id] !== sig) { savedPromoSig.current[p.promo_id] = sig; saveSubmission(rec).catch(() => {}) }
+    })
   }, [promotions])
   useEffect(() => {
-    if (apiEnabled() && apiLoadedRef.current) requests.forEach((r) => saveSubmission(toSubmissionRecord(r, 'request')).catch(() => {}))
+    if (!apiEnabled() || !apiLoadedRef.current) return
+    requests.forEach((r) => {
+      const rec = toSubmissionRecord(r, 'request')
+      const sig = JSON.stringify(rec)
+      if (savedReqSig.current[r.requestId] !== sig) { savedReqSig.current[r.requestId] = sig; saveSubmission(rec).catch(() => {}) }
+    })
   }, [requests])
 
   // Shared RCSM ↔ chain ownership config (Postgres) so routing is consistent across users
