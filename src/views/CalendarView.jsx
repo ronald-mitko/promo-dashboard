@@ -1,21 +1,11 @@
 import { useState, useMemo } from 'react'
-import { formatDate, formatDateRange, formatCurrency } from '../lib/helpers'
+import { formatDate, formatDateRange, formatCurrency, toLocalYMD } from '../lib/helpers'
 import { CalendarIcon, TrendUpIcon, TagIcon, CloseIcon, StoreIcon, ClipboardIcon, getRetailerIcon } from '../components/icons'
 import StatusBadge, { PROMO_TYPE_STYLES } from '../components/StatusBadge'
 
 // Calendar timeline view (retailer rows x 6 weeks) + promo detail modal.
 // Extracted from App.jsx, with its week-math helpers.
-
-// Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Dates here are
-// built at local midnight, so toISOString() (UTC) would shift them back a day
-// for users west of UTC and mis-bucket promos by one week. Always compare/emit
-// in local terms to match the local-midnight construction.
-function toLocalYMD(dt) {
-  const y = dt.getFullYear()
-  const m = String(dt.getMonth() + 1).padStart(2, '0')
-  const d = String(dt.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
+// toLocalYMD (local-fields date format) is shared from lib/helpers.
 
 function computeWeeks(promotions) {
   let earliest

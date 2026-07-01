@@ -6,7 +6,7 @@ import { SEED_RCSMS, SEED_TEAMS, SEED_CLIENTS, SEED_STORES, SEED_ITEMS } from '.
 import { loadInitialSession, withPromoDefaultsAll, withPromoDefaults, runMigration, genId } from './lib/storage'
 import { resolveRcsmForRecord, rcsmName } from './lib/routing'
 import { downloadExport } from './lib/exportFormat'
-import { apiEnabled, listSubmissions, saveSubmission, toSubmissionRecord, getConfig, saveConfig } from './lib/api'
+import { apiEnabled, listSubmissions, saveSubmission, deleteSubmission, toSubmissionRecord, getConfig, saveConfig } from './lib/api'
 import { SUBMISSION_STATUS, REQUEST_TYPES, PRIORITY_TYPES } from './lib/constants'
 import RequestStatusBadge from './components/RequestStatusBadge'
 import RequestButtons from './components/RequestButtons'
@@ -438,18 +438,30 @@ function App() {
   }, [])
   useEffect(() => {
     if (!apiEnabled() || !apiLoadedRef.current) return
+    const liveIds = new Set()
     promotions.forEach((p) => {
+      liveIds.add(p.promo_id)
       const rec = toSubmissionRecord(p, 'promotion')
       const sig = JSON.stringify(rec)
       if (savedPromoSig.current[p.promo_id] !== sig) { savedPromoSig.current[p.promo_id] = sig; saveSubmission(rec).catch(() => {}) }
     })
+    // Propagate deletions: any id we've saved but is no longer present.
+    Object.keys(savedPromoSig.current).forEach((id) => {
+      if (!liveIds.has(id)) { delete savedPromoSig.current[id]; deleteSubmission(id).catch(() => {}) }
+    })
   }, [promotions])
   useEffect(() => {
     if (!apiEnabled() || !apiLoadedRef.current) return
+    const liveIds = new Set()
     requests.forEach((r) => {
+      liveIds.add(r.requestId)
       const rec = toSubmissionRecord(r, 'request')
       const sig = JSON.stringify(rec)
       if (savedReqSig.current[r.requestId] !== sig) { savedReqSig.current[r.requestId] = sig; saveSubmission(rec).catch(() => {}) }
+    })
+    // Propagate deletions: any id we've saved but is no longer present.
+    Object.keys(savedReqSig.current).forEach((id) => {
+      if (!liveIds.has(id)) { delete savedReqSig.current[id]; deleteSubmission(id).catch(() => {}) }
     })
   }, [requests])
 

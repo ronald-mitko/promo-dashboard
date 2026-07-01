@@ -17,6 +17,16 @@ export function formatCurrency(val) {
   return `$${Number(val).toFixed(2)}`
 }
 
+// Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Our date inputs
+// are built at local midnight, so toISOString() (UTC) would shift the day for
+// users whose zone differs from UTC. Always emit in local terms to stay consistent.
+export function toLocalYMD(dt) {
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 // Date+time label for audit/history rows.
 export function formatTimestamp(iso) {
   try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '—' }

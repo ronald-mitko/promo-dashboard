@@ -35,6 +35,12 @@ export async function saveSubmission(rec) {
   return r.json()
 }
 
+export async function deleteSubmission(id) {
+  const r = await fetch(`/api/submissions?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!r.ok) throw new Error(`delete → ${r.status}`)
+  return r.json()
+}
+
 // ── Shared config (RCSM ownership, etc.) ──
 export async function getConfig(key) {
   const r = await fetch(`/api/config?key=${encodeURIComponent(key)}`)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DATE_PRESETS, NEW_ITEM_FIELDS } from '../../lib/constants'
-import { formatDateRange } from '../../lib/helpers'
+import { formatDateRange, toLocalYMD } from '../../lib/helpers'
 import { apiEnabled } from '../../lib/api'
 
 // Shared little UI helpers ───────────────────────────────────────────────
@@ -258,7 +258,7 @@ function addWeeks(dateStr, weeks) {
   if (!dateStr) return ''
   const d = new Date(dateStr + 'T00:00:00')
   d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().slice(0, 10)
+  return toLocalYMD(d) // local fields, not toISOString() (UTC) — avoids day shift
 }
 
 export function WorkflagDetailsStep({ state, dispatch }) {

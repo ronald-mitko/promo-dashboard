@@ -3,8 +3,9 @@
 //   GET    ?kind=&rcsmId=&status=   → list (newest first)
 //   POST   { id, kind, type, status, routed_rcsm, submitted_by, payload, history }
 //   PATCH  { id, status?, routed_rcsm?, history?, payload? }
+//   DELETE ?id=   (or { id })   → remove a submission
 // ─────────────────────────────────────────────
-import { pgConfigured, listSubmissions, upsertSubmission, patchSubmission } from '../server/pg.js'
+import { pgConfigured, listSubmissions, upsertSubmission, patchSubmission, deleteSubmission } from '../server/pg.js'
 
 export default async function handler(req, res) {
   if (!pgConfigured()) return res.status(503).json({ error: 'Postgres not configured (create a Vercel Postgres store)' })
@@ -24,6 +25,12 @@ export default async function handler(req, res) {
       const { id, ...patch } = req.body || {}
       if (!id) return res.status(400).json({ error: 'id is required' })
       await patchSubmission(id, patch)
+      return res.status(200).json({ ok: true, id })
+    }
+    if (req.method === 'DELETE') {
+      const id = req.query.id || (req.body && req.body.id)
+      if (!id) return res.status(400).json({ error: 'id is required' })
+      await deleteSubmission(id)
       return res.status(200).json({ ok: true, id })
     }
     return res.status(405).json({ error: 'Method not allowed' })

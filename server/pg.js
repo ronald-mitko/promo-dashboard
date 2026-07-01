@@ -63,6 +63,13 @@ export async function upsertSubmission({ id, kind, type, status, routed_rcsm, su
   return { id }
 }
 
+// Remove a submission (propagates a client-side delete). No-op if id is absent.
+export async function deleteSubmission(id) {
+  await ensureSchema()
+  await sql`DELETE FROM submissions WHERE id = ${id}`
+  return { id }
+}
+
 // ── Shared app config (e.g. RCSM ↔ chain ownership) as JSON by key ──
 let configReady = false
 export async function ensureConfigSchema() {
