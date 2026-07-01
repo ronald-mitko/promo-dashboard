@@ -17,6 +17,8 @@ import {
   MenuIcon, CloseIcon, FireIcon, StoreIcon, ClipboardIcon,
 } from './components/icons'
 import AddPromoModal from './components/AddPromoModal'
+import { useAuth } from './components/AuthGate'
+import { logout as authLogout } from './lib/auth'
 import PromotionsView from './views/PromotionsView'
 import CalendarView from './views/CalendarView'
 import StartView from './views/StartView'
@@ -278,6 +280,9 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+
+  // Signed-in identity from magic-link auth (email + whether auth is enforced).
+  const auth = useAuth()
 
   // Session: lightweight role switch (HQ enters/submits; RCSM approves/exports)
   const [session, setSession] = useLocalStorageState(STORAGE_KEYS.session, loadInitialSession)
@@ -696,6 +701,19 @@ function App() {
         <div className="fixed inset-0 z-50 flex items-start justify-end p-4 pt-16" onClick={() => setShowSettings(false)}>
           <div className="bg-white rounded-2xl shadow-2xl border border-green-4/10 p-5 w-80 animate-fade-in-up max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-sm font-bold text-green-4 mb-3">Settings</h4>
+            {/* Signed-in identity (only when auth is enforced) */}
+            {auth.configured && auth.user && (
+              <div className="mb-3 pb-3 border-b border-green-4/10">
+                <label className={LABEL}>Signed in as</label>
+                <div className="text-sm font-medium text-green-4 truncate">{auth.name || auth.user}</div>
+                <button
+                  onClick={async () => { await authLogout(); window.location.reload() }}
+                  className="mt-2 text-xs font-bold text-red-500 hover:text-red-600"
+                >
+                  Log out
+                </button>
+              </div>
+            )}
             {/* Role switch */}
             <div className="flex flex-col gap-1 mb-3">
               <label className={LABEL}>Viewing As</label>

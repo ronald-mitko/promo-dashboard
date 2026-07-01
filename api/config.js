@@ -5,8 +5,10 @@
 // Used for RCSM ↔ chain ownership so routing is consistent across users.
 // ─────────────────────────────────────────────
 import { pgConfigured, getConfig, setConfig } from '../server/pg.js'
+import { requireAuth } from '../server/auth.js'
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   if (!pgConfigured()) return res.status(503).json({ error: 'Postgres not configured' })
   try {
     if (req.method === 'GET') {

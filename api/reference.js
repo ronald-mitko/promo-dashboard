@@ -3,6 +3,7 @@
 // Read-only reference data from Fabric SQL. SQL mirrors the workflag-submission app.
 // ─────────────────────────────────────────────
 import { queryRows, TYPES, fabricConfigured, getLast12PeriodStart } from '../server/fabric.js'
+import { requireAuth } from '../server/auth.js'
 
 const TEAMS = [
   { id: '1', name: 'Syndicated Grocery' },
@@ -15,6 +16,7 @@ const SL_COMBINED_TEAM = { '1': 'Core', '27': 'Ethnic Sales' }
 const BATCH_SIZE = 2000
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   const resource = req.query.resource
   const teamId = req.query.teamId
   const clientId = req.query.clientId

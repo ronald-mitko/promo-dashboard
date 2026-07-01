@@ -6,8 +6,10 @@
 //   DELETE ?id=   (or { id })   → remove a submission
 // ─────────────────────────────────────────────
 import { pgConfigured, listSubmissions, upsertSubmission, patchSubmission, deleteSubmission } from '../server/pg.js'
+import { requireAuth } from '../server/auth.js'
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   if (!pgConfigured()) return res.status(503).json({ error: 'Postgres not configured (create a Vercel Postgres store)' })
 
   try {
