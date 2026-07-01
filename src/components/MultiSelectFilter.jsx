@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { FIELD, LABEL } from '../lib/ui'
 
 // Multi-select dropdown with checkboxes + "Clear all" (used for Chain). Extracted from App.jsx.
 export default function MultiSelectFilter({ label, selected, onChange, options }) {
@@ -25,11 +26,11 @@ export default function MultiSelectFilter({ label, selected, onChange, options }
 
   return (
     <div className="flex flex-col gap-1 relative" ref={ref}>
-      <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">{label}</label>
+      <label className={LABEL}>{label}</label>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium cursor-pointer hover:border-green-2 focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all text-left flex items-center justify-between gap-2"
+        className={`${FIELD} cursor-pointer hover:border-green-2 text-left flex items-center justify-between gap-2`}
       >
         <span className="truncate">{displayText}</span>
         <svg className={`w-3 h-3 text-green-4/50 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>

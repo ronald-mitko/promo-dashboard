@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { FIELD, LABEL } from '../lib/ui'
 import * as XLSX from "xlsx"
 import { useReferenceData } from "../hooks/useReferenceData"
 import { ChainPicker } from "./wizard/steps"
@@ -403,22 +404,22 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Team *</label>
-                  <select value={formData.teamId} onChange={(e) => { const t = refData.teams.find((x) => x.id === e.target.value); setFormData((prev) => ({ ...prev, teamId: e.target.value, teamName: t ? t.name : '', clientId: '', clientName: '', chains: [] })); setFormError('') }} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all">
+                  <label className={LABEL}>Team *</label>
+                  <select value={formData.teamId} onChange={(e) => { const t = refData.teams.find((x) => x.id === e.target.value); setFormData((prev) => ({ ...prev, teamId: e.target.value, teamName: t ? t.name : '', clientId: '', clientName: '', chains: [] })); setFormError('') }} className={FIELD}>
                     <option value="">Select a team…</option>
                     {refData.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Client *</label>
-                  <select value={formData.clientId} disabled={!formData.teamId} onChange={(e) => { const c = clientOptions.find((x) => x.clientId === e.target.value); setFormData((prev) => ({ ...prev, clientId: e.target.value, clientName: c ? c.name : '' })); setFormError('') }} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all disabled:opacity-50">
+                  <label className={LABEL}>Client *</label>
+                  <select value={formData.clientId} disabled={!formData.teamId} onChange={(e) => { const c = clientOptions.find((x) => x.clientId === e.target.value); setFormData((prev) => ({ ...prev, clientId: e.target.value, clientName: c ? c.name : '' })); setFormError('') }} className={`${FIELD} disabled:opacity-50`}>
                     <option value="">{formData.teamId ? 'Select a client…' : 'Select a team first'}</option>
                     {clientOptions.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
                   </select>
                 </div>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Retailer * — master / sub-master / chain</label>
+                <label className={LABEL}>Retailer * — master / sub-master / chain</label>
                 {formData.teamId ? (
                   <ChainPicker chains={refData.chains} selectedChains={formData.chains} dispatch={chainDispatch} />
                 ) : (
@@ -428,67 +429,67 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Product Name *</label>
-                  <input type="text" value={formData.product} onChange={(e) => handleFormChange('product', e.target.value)} placeholder="e.g. Product Name 15lb" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Product Name *</label>
+                  <input type="text" value={formData.product} onChange={(e) => handleFormChange('product', e.target.value)} placeholder="e.g. Product Name 15lb" className={`${FIELD} placeholder:text-green-4/30`}/>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Brand *</label>
-                  <input list="brands-list" value={formData.brand} onChange={(e) => handleFormChange('brand', e.target.value)} placeholder="e.g. Brand name" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Brand *</label>
+                  <input list="brands-list" value={formData.brand} onChange={(e) => handleFormChange('brand', e.target.value)} placeholder="e.g. Brand name" className={`${FIELD} placeholder:text-green-4/30`}/>
                   <datalist id="brands-list">
                     {[...new Set(promotions.map(p => p.brand))].map(b => <option key={b} value={b}/>)}
                   </datalist>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Category *</label>
-                  <input list="categories-list" value={formData.category} onChange={(e) => handleFormChange('category', e.target.value)} placeholder="e.g. Product category" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Category *</label>
+                  <input list="categories-list" value={formData.category} onChange={(e) => handleFormChange('category', e.target.value)} placeholder="e.g. Product category" className={`${FIELD} placeholder:text-green-4/30`}/>
                   <datalist id="categories-list">
                     {[...new Set(promotions.map(p => p.category))].map(c => <option key={c} value={c}/>)}
                   </datalist>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Promo Type *</label>
-                  <select value={formData.promo_type} onChange={(e) => handleFormChange('promo_type', e.target.value)} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all">
+                  <label className={LABEL}>Promo Type *</label>
+                  <select value={formData.promo_type} onChange={(e) => handleFormChange('promo_type', e.target.value)} className={FIELD}>
                     {['TPR', 'Feature', 'Display', 'Feature and Display'].map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Mechanic *</label>
-                  <input type="text" value={formData.mechanic} onChange={(e) => handleFormChange('mechanic', e.target.value)} placeholder="e.g. $2 off regular price" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Mechanic *</label>
+                  <input type="text" value={formData.mechanic} onChange={(e) => handleFormChange('mechanic', e.target.value)} placeholder="e.g. $2 off regular price" className={`${FIELD} placeholder:text-green-4/30`}/>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Start Date *</label>
-                  <input type="date" value={formData.start_date} onChange={(e) => handleFormChange('start_date', e.target.value)} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all"/>
+                  <label className={LABEL}>Start Date *</label>
+                  <input type="date" value={formData.start_date} onChange={(e) => handleFormChange('start_date', e.target.value)} className={FIELD}/>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">End Date *</label>
-                  <input type="date" value={formData.end_date} onChange={(e) => handleFormChange('end_date', e.target.value)} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all"/>
+                  <label className={LABEL}>End Date *</label>
+                  <input type="date" value={formData.end_date} onChange={(e) => handleFormChange('end_date', e.target.value)} className={FIELD}/>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Retail Price *</label>
-                  <input type="number" step="0.01" min="0" value={formData.retail_price} onChange={(e) => handleFormChange('retail_price', e.target.value)} placeholder="18.99" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Retail Price *</label>
+                  <input type="number" step="0.01" min="0" value={formData.retail_price} onChange={(e) => handleFormChange('retail_price', e.target.value)} placeholder="18.99" className={`${FIELD} placeholder:text-green-4/30`}/>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Promo Price *</label>
-                  <input type="number" step="0.01" min="0" value={formData.promo_price} onChange={(e) => handleFormChange('promo_price', e.target.value)} placeholder="16.99" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Promo Price *</label>
+                  <input type="number" step="0.01" min="0" value={formData.promo_price} onChange={(e) => handleFormChange('promo_price', e.target.value)} placeholder="16.99" className={`${FIELD} placeholder:text-green-4/30`}/>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Expected Lift %</label>
-                  <input type="number" step="1" min="0" value={formData.expected_lift} onChange={(e) => handleFormChange('expected_lift', e.target.value)} placeholder="15" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                  <label className={LABEL}>Expected Lift %</label>
+                  <input type="number" step="1" min="0" value={formData.expected_lift} onChange={(e) => handleFormChange('expected_lift', e.target.value)} placeholder="15" className={`${FIELD} placeholder:text-green-4/30`}/>
                 </div>
                 {formData.retail_price && formData.promo_price && parseFloat(formData.retail_price) > 0 && (
                   <div className="flex flex-col gap-1 justify-center">
-                    <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Depth of Discount</label>
+                    <label className={LABEL}>Depth of Discount</label>
                     <div className="text-lg font-bold text-green-2">{((1 - parseFloat(formData.promo_price) / parseFloat(formData.retail_price)) * 100).toFixed(1)}%</div>
                   </div>
                 )}
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Display Requirements</label>
-                <textarea value={formData.display} onChange={(e) => handleFormChange('display', e.target.value)} placeholder="e.g. Endcap display in pet aisle" rows={2} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30 resize-none"/>
+                <label className={LABEL}>Display Requirements</label>
+                <textarea value={formData.display} onChange={(e) => handleFormChange('display', e.target.value)} placeholder="e.g. Endcap display in pet aisle" rows={2} className={`${FIELD} placeholder:text-green-4/30 resize-none`}/>
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Compliance Checklist (one item per line)</label>
-                <textarea value={formData.checklist_text} onChange={(e) => handleFormChange('checklist_text', e.target.value)} placeholder={"Verify price tag updated\nCheck stock levels\nPhoto verification required"} rows={3} className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30 resize-none"/>
+                <label className={LABEL}>Compliance Checklist (one item per line)</label>
+                <textarea value={formData.checklist_text} onChange={(e) => handleFormChange('checklist_text', e.target.value)} placeholder={"Verify price tag updated\nCheck stock levels\nPhoto verification required"} rows={3} className={`${FIELD} placeholder:text-green-4/30 resize-none`}/>
               </div>
               {formError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">{formError}</div>
@@ -590,7 +591,7 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
                     <svg className="w-4 h-4 text-green-4/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
                     </svg>
-                    <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Anthropic API Key</label>
+                    <label className={LABEL}>Anthropic API Key</label>
                     {aiKeySaved && (
                       <span className="text-xs font-semibold text-green-2 flex items-center gap-1">
                         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M9 12l2 2 4-4"/></svg>
@@ -604,7 +605,7 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
                       value={aiApiKey}
                       onChange={(e) => setAiApiKey(e.target.value)}
                       placeholder="sk-ant-..."
-                      className="flex-1 bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30 font-mono"
+                      className={`flex-1 ${FIELD} placeholder:text-green-4/30 font-mono`}
                     />
                     <button
                       onClick={handleSaveApiKey}
@@ -620,7 +621,7 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
 
                 {/* Text input */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Describe the promotion</label>
+                  <label className={LABEL}>Describe the promotion</label>
                   <textarea
                     value={aiText}
                     onChange={(e) => { setAiText(e.target.value); setAiError('') }}

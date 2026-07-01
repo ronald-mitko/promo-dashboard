@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { SEED_TEAMS } from '../lib/seed'
 import { REQUEST_TYPES } from '../lib/constants'
 import { useReferenceData } from '../hooks/useReferenceData'
+import { FIELD, LABEL } from '../lib/ui'
 
 // Manage RCSMs and which clients each one owns. Ownership drives routing
 // (a submission's client → the RCSM whose accounts include that client).
@@ -23,8 +24,8 @@ export default function RcsmAdminView({ rcsms, setRcsms, seedRefData }) {
   const removeAccount = (rcsmId, account) => setRcsms((prev) => prev.map((r) => (r.rcsmId === rcsmId ? { ...r, accounts: (r.accounts || []).filter((a) => a !== account) } : r)))
   const addRcsm = () => setRcsms((prev) => [...prev, { rcsmId: `rcsm_${Math.random().toString(36).slice(2, 8)}`, name: 'New RCSM', accounts: [] }])
 
-  const input = 'bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all'
-  const label = 'text-xs font-semibold text-green-4/60 uppercase tracking-wider'
+  const input = FIELD
+  const label = LABEL
 
   return (
     <div className="animate-fade-in-up space-y-6">

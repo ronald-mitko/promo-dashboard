@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { FIELD, LABEL } from './lib/ui'
 import * as XLSX from 'xlsx'
 import { useLocalStorageState } from './hooks/useLocalStorageState'
 import { STORAGE_KEYS, ROLES, ROLE_LABELS } from './lib/constants'
@@ -697,7 +698,7 @@ function App() {
             <h4 className="text-sm font-bold text-green-4 mb-3">Settings</h4>
             {/* Role switch */}
             <div className="flex flex-col gap-1 mb-3">
-              <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Viewing As</label>
+              <label className={LABEL}>Viewing As</label>
               <div className="grid grid-cols-2 gap-2">
                 {[{ id: ROLES.HQ, label: 'HQ' }, { id: ROLES.RCSM, label: 'RCSM' }].map((opt) => (
                   <button
@@ -714,11 +715,11 @@ function App() {
 
             {settingsRole === ROLES.RCSM ? (
               <div className="flex flex-col gap-1 mb-3">
-                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">RCSM Identity</label>
+                <label className={LABEL}>RCSM Identity</label>
                 <select
                   value={settingsRcsmId}
                   onChange={(e) => setSettingsRcsmId(e.target.value)}
-                  className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all"
+                  className={FIELD}
                 >
                   {rcsms.map((r) => (
                     <option key={r.rcsmId} value={r.rcsmId}>{r.name} — {r.accounts.length} account{r.accounts.length !== 1 ? 's' : ''}</option>
@@ -727,8 +728,8 @@ function App() {
               </div>
             ) : (
               <div className="flex flex-col gap-1 mb-3">
-                <label className="text-xs font-semibold text-green-4/60 uppercase tracking-wider">Your Name</label>
-                <input type="text" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} placeholder="Your name" className="bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all placeholder:text-green-4/30"/>
+                <label className={LABEL}>Your Name</label>
+                <input type="text" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} placeholder="Your name" className={`${FIELD} placeholder:text-green-4/30`}/>
               </div>
             )}
             <button

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { REQUEST_TYPES } from '../lib/constants'
+import { FIELD, LABEL } from '../lib/ui'
 
 const SUPPORT_TYPES = ['merchandising', 'reset', 'audit', 'training', 'other']
 const PRIORITIES = ['low', 'medium', 'high']
 const REPORT_TYPES = ['compliance', 'sales-lift', 'execution-photos', 'custom']
 const FORMATS = ['pdf', 'csv', 'dashboard']
 
-const inputCls = 'bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all w-full'
-const labelCls = 'text-xs font-semibold text-green-4/60 uppercase tracking-wider'
+const inputCls = `${FIELD} w-full`
+const labelCls = LABEL
 
 // Inline buttons that open a compact request modal. `linkedPromo` ties the
 // request to a priority (and supplies routing chain/retailer).

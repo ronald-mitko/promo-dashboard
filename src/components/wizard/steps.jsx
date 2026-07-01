@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { DATE_PRESETS, NEW_ITEM_FIELDS } from '../../lib/constants'
 import { formatDateRange, toLocalYMD } from '../../lib/helpers'
 import { apiEnabled } from '../../lib/api'
+import { FIELD, LABEL } from '../../lib/ui'
 
-// Shared little UI helpers ───────────────────────────────────────────────
-const labelCls = 'text-xs font-semibold text-green-4/60 uppercase tracking-wider'
-const inputCls = 'bg-white border border-green-4/15 rounded-lg px-3 py-2 text-sm text-green-4 font-medium focus:outline-none focus:ring-2 focus:ring-green-2/40 focus:border-green-2 transition-all'
+// Shared field/label style tokens (single source in lib/ui).
+const labelCls = LABEL
+const inputCls = FIELD
 
 function ChoiceButton({ active, onClick, children }) {
   return (
