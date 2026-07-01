@@ -42,6 +42,17 @@ function CalendarView({ promotions, brandColors, onShowAddModal }) {
   const retailers = useMemo(() => [...new Set(promotions.map(p => p.retailer))].sort(), [promotions])
   const weeks = useMemo(() => computeWeeks(promotions), [promotions])
 
+  // Precompute the retailer x week promo buckets once per data change, so
+  // toggling the detail modal (selectedPromo state) doesn't recompute the whole
+  // O(retailers x weeks x promos) grid on every render.
+  const grid = useMemo(
+    () => retailers.map((retailer) => ({
+      retailer,
+      cells: weeks.map((week) => promotions.filter((p) => p.retailer === retailer && promoOverlapsWeek(p, week))),
+    })),
+    [retailers, weeks, promotions],
+  )
+
   // Empty state
   if (promotions.length === 0) {
     return (
@@ -97,36 +108,30 @@ function CalendarView({ promotions, brandColors, onShowAddModal }) {
               ))}
             </div>
 
-            {/* Retailer rows */}
-            {retailers.map((retailer) => {
-              const retailerPromos = promotions.filter((p) => p.retailer === retailer)
-              return (
-                <div key={retailer} className="grid grid-cols-[140px_repeat(6,1fr)] border-b border-green-4/5 last:border-b-0 hover:bg-cream/50 transition-colors">
-                  <div className="p-3 flex items-center gap-2">
-                    <span className="text-green-3">{getRetailerIcon(retailer)}</span>
-                    <span className="text-sm font-semibold text-green-4">{retailer}</span>
-                  </div>
-                  {weeks.map((week) => {
-                    const weekPromos = retailerPromos.filter((p) => promoOverlapsWeek(p, week))
-                    return (
-                      <div key={week.start} className="p-2 border-l border-green-4/5 flex flex-col gap-1">
-                        {weekPromos.map((promo) => (
-                          <button
-                            key={promo.promo_id}
-                            onClick={() => setSelectedPromo(promo)}
-                            className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-semibold text-white truncate transition-all hover:scale-105 hover:shadow-md cursor-pointer"
-                            style={{ backgroundColor: brandColors[promo.brand]?.bar || '#007B4E' }}
-                            title={promo.product}
-                          >
-                            {(promo.brand || '').split(' ')[0]}
-                          </button>
-                        ))}
-                      </div>
-                    )
-                  })}
+            {/* Retailer rows (buckets precomputed in `grid`) */}
+            {grid.map(({ retailer, cells }) => (
+              <div key={retailer} className="grid grid-cols-[140px_repeat(6,1fr)] border-b border-green-4/5 last:border-b-0 hover:bg-cream/50 transition-colors">
+                <div className="p-3 flex items-center gap-2">
+                  <span className="text-green-3">{getRetailerIcon(retailer)}</span>
+                  <span className="text-sm font-semibold text-green-4">{retailer}</span>
                 </div>
-              )
-            })}
+                {cells.map((weekPromos, wi) => (
+                  <div key={weeks[wi].start} className="p-2 border-l border-green-4/5 flex flex-col gap-1">
+                    {weekPromos.map((promo) => (
+                      <button
+                        key={promo.promo_id}
+                        onClick={() => setSelectedPromo(promo)}
+                        className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-semibold text-white truncate transition-all hover:scale-105 hover:shadow-md cursor-pointer"
+                        style={{ backgroundColor: brandColors[promo.brand]?.bar || '#007B4E' }}
+                        title={promo.product}
+                      >
+                        {(promo.brand || '').split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
       </div>

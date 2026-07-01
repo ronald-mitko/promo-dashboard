@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { formatDateRange, formatCurrency } from '../lib/helpers'
 import {
   CalendarIcon, TagIcon, StoreIcon, TrendUpIcon, ClipboardIcon, ChevronDownIcon, CheckCircleIcon, getRetailerIcon,
@@ -8,8 +8,10 @@ import RequestStatusBadge from './RequestStatusBadge'
 import RequestButtons from './RequestButtons'
 
 // Single promotion card with hover-delete, compliance checklist, and submit/reporting
-// actions. Extracted from App.jsx — markup unchanged.
-export default function PromoCard({ promo, index, role, onDelete, onSubmit, onEdit, onAddRequest, brandColors }) {
+// actions. Extracted from App.jsx — markup unchanged. Memoized: the grid renders
+// many cards and props are referentially stable (App handlers are useCallback,
+// brandColors is useMemo), so unchanged cards skip re-render when filters change.
+function PromoCard({ promo, index, role, onDelete, onSubmit, onEdit, onAddRequest, brandColors }) {
   const [expanded, setExpanded] = useState(false)
   const [checkedItems, setCheckedItems] = useState({})
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -190,3 +192,5 @@ export default function PromoCard({ promo, index, role, onDelete, onSubmit, onEd
     </div>
   )
 }
+
+export default memo(PromoCard)
