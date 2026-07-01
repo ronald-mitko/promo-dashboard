@@ -118,7 +118,7 @@ function CalendarView({ promotions, brandColors, onShowAddModal }) {
                             style={{ backgroundColor: brandColors[promo.brand]?.bar || '#007B4E' }}
                             title={promo.product}
                           >
-                            {promo.brand.split(' ')[0]}
+                            {(promo.brand || '').split(' ')[0]}
                           </button>
                         ))}
                       </div>

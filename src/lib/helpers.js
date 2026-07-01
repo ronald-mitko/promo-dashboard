@@ -13,7 +13,8 @@ export function formatDateRange(start, end) {
 }
 
 export function formatCurrency(val) {
-  return `$${Number(val).toFixed(2)}`
+  const n = Number(val)
+  return `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
 }
 
 // Format a Date as YYYY-MM-DD using its LOCAL calendar fields. Our date inputs

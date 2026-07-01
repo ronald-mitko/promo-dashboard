@@ -687,7 +687,7 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
                           <span className="text-lg line-through text-green-4/40 font-medium">{formatCurrency(aiParsedPromo.retail_price)}</span>
                           <span className="text-2xl font-bold text-green-3">{formatCurrency(aiParsedPromo.promo_price)}</span>
                           <span className="ml-auto bg-green-2/15 text-green-2 text-xs font-bold px-2 py-1 rounded-lg">
-                            Save {((1 - aiParsedPromo.promo_price / aiParsedPromo.retail_price) * 100).toFixed(0)}%
+                            Save {aiParsedPromo.retail_price > 0 ? ((1 - aiParsedPromo.promo_price / aiParsedPromo.retail_price) * 100).toFixed(0) : 0}%
                           </span>
                         </div>
                       </div>

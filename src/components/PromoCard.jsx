@@ -16,7 +16,8 @@ export default function PromoCard({ promo, index, role, onDelete, onSubmit, onEd
   // Brand color is applied via inline style (Tailwind can't JIT interpolated classes).
   // `${hex}26` appends ~15% alpha to the 6-digit hex for the pill background.
   const brandColor = brandColors[promo.brand]?.bar || '#007B4E'
-  const savings = ((1 - promo.promo_price / promo.retail_price) * 100).toFixed(0)
+  // Guard divide-by-zero: CSV/AI imports can store retail_price 0 when absent.
+  const savings = promo.retail_price > 0 ? ((1 - promo.promo_price / promo.retail_price) * 100).toFixed(0) : 0
 
   const toggleCheck = (i) => {
     setCheckedItems((prev) => ({ ...prev, [i]: !prev[i] }))
