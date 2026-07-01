@@ -4,6 +4,7 @@ import { useLocalStorageState } from './hooks/useLocalStorageState'
 import { STORAGE_KEYS, ROLES, ROLE_LABELS } from './lib/constants'
 import { SEED_RCSMS, SEED_TEAMS, SEED_CLIENTS, SEED_STORES, SEED_ITEMS } from './lib/seed'
 import { loadInitialSession, withPromoDefaultsAll, withPromoDefaults, runMigration, genId } from './lib/storage'
+import { toLocalYMD } from './lib/helpers'
 import { resolveRcsmForRecord, rcsmName } from './lib/routing'
 import { downloadExport } from './lib/exportFormat'
 import { apiEnabled, listSubmissions, saveSubmission, deleteSubmission, toSubmissionRecord, getConfig, saveConfig } from './lib/api'
@@ -197,6 +198,28 @@ const SEED_PROMOTIONS = [
     checklist: ['Verify price tag', 'Photo verification required', 'Remove display post-promo'],
   },
 ]
+
+// Seed promo windows are expressed relative to "today" so the demo always shows
+// a live mix of active/upcoming/ended, no matter when it's opened. (Real status
+// is derived on load via withPromoDefaults; these offsets just keep the dates
+// realistic.) [startOffsetDays, endOffsetDays] from today, per promo id.
+const SEED_DATE_OFFSETS = {
+  'WMT-TPR-DEMO01': [-5, 27],
+  'TGT-FD-DEMO02': [-7, 21],
+  'KRG-DIG-DEMO03': [-1, 20],
+  'ALB-TPR-DEMO04': [23, 43],   // upcoming
+  'PUB-FD-DEMO05': [-2, 22],
+  'RAL-DIG-DEMO06': [-3, 18],
+  'WEG-TPR-DEMO07': [-4, 24],
+  'FRD-TPR-DEMO08': [-40, -14], // ended
+}
+SEED_PROMOTIONS.forEach((p) => {
+  const off = SEED_DATE_OFFSETS[p.promo_id]
+  if (!off) return
+  const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return toLocalYMD(d) }
+  p.start_date = day(off[0])
+  p.end_date = day(off[1])
+})
 
 // ─────────────────────────────────────────────
 // HELPER FUNCTIONS

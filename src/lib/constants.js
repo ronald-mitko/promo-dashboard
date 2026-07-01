@@ -2,10 +2,6 @@
 // CENTRAL CONSTANTS — HQ to Retail Connector
 // ─────────────────────────────────────────────
 
-// Reference "today" used by computeStatus for the demo seed. Kept explicit so
-// the seeded promotions render with sensible active/upcoming/ended statuses.
-export const TODAY = '2026-04-08'
-
 // Roles for the lightweight role switch (no real auth).
 export const ROLES = {
   HQ: 'hq',     // Headquarters — enters & submits

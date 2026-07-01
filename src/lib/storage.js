@@ -2,6 +2,7 @@
 // STORAGE helpers — safe load + additive migration
 // ─────────────────────────────────────────────
 import { STORAGE_KEYS, SCHEMA_VERSION, ROLES, SUBMISSION_STATUS } from './constants'
+import { computeStatus } from './helpers'
 
 // Simple unique id generator (browser runtime — Date/Math are available here).
 export function genId(prefix = 'id') {
@@ -9,8 +10,11 @@ export function genId(prefix = 'id') {
 }
 
 // Backfill new fields onto a stored promotion without touching existing values.
+// Lifecycle `status` is a derived value, so recompute it from the dates on every
+// load — a stored snapshot goes stale as time passes (an "active" promo whose
+// window has closed would otherwise still read "active").
 export function withPromoDefaults(p) {
-  return {
+  const out = {
     submission_status: SUBMISSION_STATUS.DRAFT,
     submitted_by: null,
     submitted_at: null,
@@ -19,6 +23,10 @@ export function withPromoDefaults(p) {
     priority_type: null,
     ...p,
   }
+  if (out.start_date && out.end_date) {
+    out.status = computeStatus(out.start_date, out.end_date)
+  }
+  return out
 }
 
 export function withPromoDefaultsAll(arr) {

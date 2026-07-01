@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────
 // Shared formatting + small domain helpers (used by App.jsx and views)
 // ─────────────────────────────────────────────
-import { TODAY } from './constants'
 
 export function formatDate(dateStr) {
   if (!dateStr) return '—'
@@ -32,11 +31,19 @@ export function formatTimestamp(iso) {
   try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch { return '—' }
 }
 
-// Promotion lifecycle status relative to the reference date (TODAY keeps demo
-// seed statuses stable; single source of truth instead of a hardcoded literal).
-export function computeStatus(startDate, endDate) {
-  if (startDate <= TODAY && endDate >= TODAY) return 'active'
-  if (startDate > TODAY) return 'upcoming'
+// Today's date as YYYY-MM-DD in the user's local zone (matches how date inputs
+// and start/end fields are stored).
+export function todayYMD() {
+  return toLocalYMD(new Date())
+}
+
+// Promotion lifecycle status relative to a reference date. Defaults to the real
+// current date so live promotions transition correctly; `status` is recomputed
+// on load (see withPromoDefaults), so it never goes stale. The `today` param is
+// injectable for tests / fixed-date scenarios.
+export function computeStatus(startDate, endDate, today = todayYMD()) {
+  if (startDate <= today && endDate >= today) return 'active'
+  if (startDate > today) return 'upcoming'
   return 'ended'
 }
 
