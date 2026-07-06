@@ -43,6 +43,7 @@ export const REQUEST_CONFIG = {
     ],
     buildRecord: (s, refData) => ({
       type: REQUEST_TYPES.WORKFLAG,
+      teamId: s.teamId,
       teamName: s.teamName,
       clientName: s.clientName,
       masterChain: storeMaster(s, refData),

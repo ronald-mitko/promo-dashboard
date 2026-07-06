@@ -28,6 +28,13 @@ export const REQUEST_TYPE_LABELS = {
   [REQUEST_TYPES.REPORTING]: 'Reporting',
 }
 
+// WorkFlag1ReasonJoin options the RCSM must pick when approving a Home Location
+// Check; the chosen code is written to the downstream export. Extend this with
+// the business's full reason list (MM is the only confirmed code so far).
+export const WORKFLAG_REASONS = [
+  { code: 'MM', label: 'MM — Merchandising' },
+]
+
 // Submission lifecycle (promotions + section requests share this spine).
 export const SUBMISSION_STATUS = {
   DRAFT: 'draft',

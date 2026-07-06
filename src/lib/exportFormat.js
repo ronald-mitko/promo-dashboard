@@ -11,6 +11,24 @@ function mmddyyyy(iso) {
   return `${m}/${d}/${y}`
 }
 
+// yyyymmddHHMMSS for export filenames (local time).
+function stamp14(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+}
+
+// Team display name → numeric TeamID (the downstream file wants the id).
+const TEAM_NAME_TO_ID = { 'Syndicated Grocery': '1', 'Hispanic Sales': '27' }
+// Filename team prefix per TeamID (e.g. WORKFLAG1_SYNG1<uid>_<stamp>.csv).
+const TEAM_FILE_PREFIX = { '1': 'SYNG1', '27': 'ETH27' }
+// Fallback reason if none was chosen at approval (RCSM normally selects one).
+const HOME_LOCATION_REASON = 'MM'
+
+// Unique per-submission id for the filename, derived from the request id.
+function submissionCode(req) {
+  return String(req.requestId || '').replace(/[^a-z0-9]/gi, '').toUpperCase().slice(-8) || 'EXPORT'
+}
+
 function csvEscape(v) {
   const s = String(v ?? '')
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -20,18 +38,26 @@ function toCsv(rows) {
   return rows.map((r) => r.map(csvEscape).join(',')).join('\n')
 }
 
-// Workflag: Store × Item rows, reason doubled when every_call (reference format).
+// Home Location Check (WorkFlag1): one row per Store × ProductPack.
+// Matches the downstream WORKFLAG1 loader format exactly:
+//   Store,ProductPack,Team,WorkFlag1ReasonJoin,WorkFlag1Start,WorkFlag1End,Inventory1,SubmissionKey,SubmissionTypeID
+// Team is the numeric TeamID; reason is fixed (MM); the last three columns are
+// left blank (populated by the downstream system on import).
 function buildWorkflag(req) {
   const p = req.payload || {}
-  const reason = p.frequency === 'every_call' ? `${p.reasonCode}${p.reasonCode}` : p.reasonCode
+  const team = req.teamId || TEAM_NAME_TO_ID[req.teamName] || ''
+  const reason = p.reasonCode
+    ? (p.frequency === 'every_call' ? `${p.reasonCode}${p.reasonCode}` : p.reasonCode)
+    : HOME_LOCATION_REASON
   const header = ['Store', 'ProductPack', 'Team', 'WorkFlag1ReasonJoin', 'WorkFlag1Start', 'WorkFlag1End', 'Inventory1', 'SubmissionKey', 'SubmissionTypeID']
   const rows = [header]
   ;(req.stores || []).forEach((store) => {
     ;(req.items || []).forEach((upc) => {
-      rows.push([store, String(upc).padStart(12, '0'), req.teamName || '', reason || '', mmddyyyy(p.startDate), mmddyyyy(p.endDate), '', req.requestId || '', '1'])
+      rows.push([store, String(upc).padStart(12, '0'), team, reason, mmddyyyy(p.startDate), mmddyyyy(p.endDate), '', '', ''])
     })
   })
-  return { filename: `WORKFLAG_${req.requestId || 'export'}.csv`, content: toCsv(rows) }
+  const prefix = TEAM_FILE_PREFIX[team] || `T${team || '0'}`
+  return { filename: `WORKFLAG1_${prefix}${submissionCode(req)}_${stamp14()}.csv`, content: toCsv(rows) }
 }
 
 // Authorize / Pricing: one row per (chain × new item) with full item detail.
