@@ -1,48 +1,50 @@
 // ─────────────────────────────────────────────
 // Username + password auth (no external deps — Node crypto only).
 //
-// Users are defined in the AUTH_USERS env var as a JSON array, e.g.
-//   AUTH_USERS=[{"username":"ron.mitko","password":"…","name":"Ron Mitko","admin":true}]
-// You provision the roster in Vercel; to change a password, edit the env var.
+// Accounts live in the Postgres `users` table with scrypt-hashed passwords.
+// A first admin is bootstrapped from AUTH_BOOTSTRAP_USER / AUTH_BOOTSTRAP_PASSWORD
+// on demand; from there admins manage the roster in-app.
 //
-// Rollout-safe: auth is "configured" only when AUTH_SECRET is set AND at least
-// one user exists. Until then requireAuth() treats requests as open, so the app
+// Rollout-safe: auth is "configured" only when AUTH_SECRET is set AND Postgres is
+// configured. Until then requireAuth() treats requests as open, so the app
 // behaves exactly as it did before auth existed.
 // ─────────────────────────────────────────────
 import crypto from 'node:crypto'
+import { pgConfigured, getUser, createUser } from './pg.js'
 
 const COOKIE = 'hqrc_session'
 const SESSION_TTL_SEC = 7 * 24 * 60 * 60 // 7 days
 
 const secret = () => process.env.AUTH_SECRET || ''
 
-export function getUsers() {
-  try {
-    const arr = JSON.parse(process.env.AUTH_USERS || '[]')
-    return Array.isArray(arr) ? arr : []
-  } catch {
-    return []
-  }
-}
 export function authConfigured() {
-  return !!process.env.AUTH_SECRET && getUsers().length > 0
+  return !!process.env.AUTH_SECRET && pgConfigured()
 }
 
-// Constant-time string compare (equalizes timing even on length mismatch).
-function constantTimeEqual(a, b) {
-  const ba = Buffer.from(String(a))
-  const bb = Buffer.from(String(b))
-  if (ba.length !== bb.length) { crypto.timingSafeEqual(ba, ba); return false }
-  return crypto.timingSafeEqual(ba, bb)
+// ── Password hashing (scrypt: "scrypt$<saltHex>$<hashHex>") ──
+export function hashPassword(password) {
+  const salt = crypto.randomBytes(16)
+  const hash = crypto.scryptSync(String(password), salt, 64)
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`
+}
+export function verifyPassword(password, stored) {
+  const parts = String(stored || '').split('$')
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false
+  const salt = Buffer.from(parts[1], 'hex')
+  const expected = Buffer.from(parts[2], 'hex')
+  let actual
+  try { actual = crypto.scryptSync(String(password), salt, expected.length) } catch { return false }
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected)
 }
 
-// Verify credentials against the env roster. Returns { username, name, admin } or null.
-export function verifyCredentials(username, password) {
-  const uname = String(username || '').trim().toLowerCase()
-  const user = getUsers().find((u) => String(u.username || '').trim().toLowerCase() === uname)
-  if (!user) { constantTimeEqual(password, password); return null } // dummy compare to equalize timing
-  if (!constantTimeEqual(password, user.password)) return null
-  return { username: user.username, name: user.name || user.username, admin: !!user.admin }
+// Create the bootstrap admin if configured and not already present. Idempotent.
+export async function ensureBootstrapAdmin() {
+  const uname = String(process.env.AUTH_BOOTSTRAP_USER || '').trim().toLowerCase()
+  const pw = process.env.AUTH_BOOTSTRAP_PASSWORD || ''
+  if (!uname || !pw) return
+  const existing = await getUser(uname)
+  if (existing) return
+  await createUser({ username: uname, password_hash: hashPassword(pw), name: process.env.AUTH_BOOTSTRAP_NAME || uname, is_admin: true })
 }
 
 // ── Session token: compact HMAC-signed payload (base64url(payload).base64url(sig)) ──
@@ -91,5 +93,13 @@ export function requireAuth(req, res) {
   if (!authConfigured()) return { open: true }
   const s = getSession(req)
   if (!s) { res.status(401).json({ error: 'Authentication required' }); return null }
+  return s
+}
+
+// Gate an admin-only endpoint. Returns the session or writes 401/403 and null.
+export function requireAdmin(req, res) {
+  const s = getSession(req)
+  if (!s) { res.status(401).json({ error: 'Authentication required' }); return null }
+  if (!s.admin) { res.status(403).json({ error: 'Admin access required' }); return null }
   return s
 }

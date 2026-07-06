@@ -3,8 +3,8 @@ import { apiEnabled } from '../lib/api'
 import { getMe } from '../lib/auth'
 import LoginView from '../views/LoginView'
 
-// Exposes the signed-in identity to the app (user/name + whether auth is enforced).
-const AuthContext = createContext({ user: null, name: null, configured: false })
+// Exposes the signed-in identity to the app (user/name/admin + whether auth is enforced).
+const AuthContext = createContext({ user: null, name: null, admin: false, configured: false })
 export const useAuth = () => useContext(AuthContext)
 
 // Gates the app behind username/password auth when it's enabled server-side.
@@ -15,12 +15,12 @@ export const useAuth = () => useContext(AuthContext)
 export default function AuthGate({ children }) {
   const [state, setState] = useState(() =>
     apiEnabled()
-      ? { loading: true, ok: false, user: null, name: null, configured: false }
-      : { loading: false, ok: true, user: null, name: null, configured: false },
+      ? { loading: true, ok: false, user: null, name: null, admin: false, configured: false }
+      : { loading: false, ok: true, user: null, name: null, admin: false, configured: false },
   )
 
   const refresh = () => getMe().then((m) =>
-    setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, configured: m.configured }),
+    setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, admin: !!m.admin, configured: m.configured }),
   )
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function AuthGate({ children }) {
     let alive = true
     getMe().then((m) => {
       if (!alive) return
-      setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, configured: m.configured })
+      setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, admin: !!m.admin, configured: m.configured })
     })
     return () => { alive = false }
   }, [])
@@ -39,7 +39,7 @@ export default function AuthGate({ children }) {
   if (!state.ok) return <LoginView onSignedIn={refresh} />
 
   return (
-    <AuthContext.Provider value={{ user: state.user, name: state.name, configured: state.configured }}>
+    <AuthContext.Provider value={{ user: state.user, name: state.name, admin: state.admin, configured: state.configured }}>
       {children}
     </AuthContext.Provider>
   )

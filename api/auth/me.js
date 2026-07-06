@@ -1,4 +1,4 @@
-// GET /api/auth/me → { configured, authenticated, user, name }
+// GET /api/auth/me → { configured, authenticated, user, name, admin }
 // `configured:false` means auth is off server-side, so the client stays open.
 import { getSession, authConfigured } from '../../server/auth.js'
 
@@ -9,5 +9,6 @@ export default async function handler(req, res) {
     authenticated: !!session,
     user: session ? session.username : null,
     name: session ? session.name : null,
+    admin: session ? !!session.admin : false,
   })
 }

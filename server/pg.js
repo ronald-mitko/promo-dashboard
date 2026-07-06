@@ -70,6 +70,61 @@ export async function deleteSubmission(id) {
   return { id }
 }
 
+// ── Users (username/password accounts; password_hash is scrypt, set by auth.js) ──
+let usersSchemaReady = false
+export async function ensureUsersSchema() {
+  if (usersSchemaReady) return
+  await sql`CREATE TABLE IF NOT EXISTS users (
+    username       TEXT PRIMARY KEY,
+    password_hash  TEXT NOT NULL,
+    name           TEXT,
+    is_admin       BOOLEAN NOT NULL DEFAULT false,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`
+  usersSchemaReady = true
+}
+export async function getUser(username) {
+  await ensureUsersSchema()
+  const { rows } = await sql`SELECT * FROM users WHERE username = ${username}`
+  return rows[0] || null
+}
+export async function listUsers() {
+  await ensureUsersSchema()
+  const { rows } = await sql`SELECT username, name, is_admin, created_at FROM users ORDER BY username`
+  return rows
+}
+export async function createUser({ username, password_hash, name, is_admin }) {
+  await ensureUsersSchema()
+  const { rowCount } = await sql`
+    INSERT INTO users (username, password_hash, name, is_admin)
+    VALUES (${username}, ${password_hash}, ${name || username}, ${!!is_admin})
+    ON CONFLICT (username) DO NOTHING`
+  return { username, created: rowCount > 0 }
+}
+export async function updateUser(username, { password_hash, name, is_admin }) {
+  await ensureUsersSchema()
+  const sets = []
+  const params = []
+  if (password_hash !== undefined) { params.push(password_hash); sets.push(`password_hash = $${params.length}`) }
+  if (name !== undefined) { params.push(name); sets.push(`name = $${params.length}`) }
+  if (is_admin !== undefined) { params.push(is_admin); sets.push(`is_admin = $${params.length}`) }
+  if (!sets.length) return { username }
+  params.push(username)
+  await sql.query(`UPDATE users SET ${sets.join(', ')}, updated_at = now() WHERE username = $${params.length}`, params)
+  return { username }
+}
+export async function deleteUser(username) {
+  await ensureUsersSchema()
+  await sql`DELETE FROM users WHERE username = ${username}`
+  return { username }
+}
+export async function countAdmins() {
+  await ensureUsersSchema()
+  const { rows } = await sql`SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true`
+  return rows[0].n
+}
+
 // ── Shared app config (e.g. RCSM ↔ chain ownership) as JSON by key ──
 let configReady = false
 export async function ensureConfigSchema() {

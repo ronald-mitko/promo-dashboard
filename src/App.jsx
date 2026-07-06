@@ -19,6 +19,8 @@ import {
 import AddPromoModal from './components/AddPromoModal'
 import { useAuth } from './components/AuthGate'
 import { logout as authLogout } from './lib/auth'
+import ChangePasswordModal from './components/ChangePasswordModal'
+import UserAdminModal from './components/UserAdminModal'
 import PromotionsView from './views/PromotionsView'
 import CalendarView from './views/CalendarView'
 import StartView from './views/StartView'
@@ -280,8 +282,10 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showChangePw, setShowChangePw] = useState(false)
+  const [showUserAdmin, setShowUserAdmin] = useState(false)
 
-  // Signed-in identity from magic-link auth (email + whether auth is enforced).
+  // Signed-in identity from auth (user/name/admin + whether auth is enforced).
   const auth = useAuth()
 
   // Session: lightweight role switch (HQ enters/submits; RCSM approves/exports)
@@ -706,12 +710,11 @@ function App() {
               <div className="mb-3 pb-3 border-b border-green-4/10">
                 <label className={LABEL}>Signed in as</label>
                 <div className="text-sm font-medium text-green-4 truncate">{auth.name || auth.user}</div>
-                <button
-                  onClick={async () => { await authLogout(); window.location.reload() }}
-                  className="mt-2 text-xs font-bold text-red-500 hover:text-red-600"
-                >
-                  Log out
-                </button>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                  <button onClick={() => setShowChangePw(true)} className="text-xs font-bold text-green-3 hover:text-green-4">Change password</button>
+                  {auth.admin && <button onClick={() => setShowUserAdmin(true)} className="text-xs font-bold text-green-3 hover:text-green-4">Manage users</button>}
+                  <button onClick={async () => { await authLogout(); window.location.reload() }} className="text-xs font-bold text-red-500 hover:text-red-600">Log out</button>
+                </div>
               </div>
             )}
             {/* Role switch */}
@@ -867,6 +870,9 @@ function App() {
         onAddRequest={handleAddRequest}
         initialPriorityType={addPriorityType}
       />
+
+      {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
+      {showUserAdmin && <UserAdminModal onClose={() => setShowUserAdmin(false)} currentUser={auth.user} />}
 
       {/* Footer */}
       <footer className="border-t border-green-4/8 bg-white/50 mt-8">
