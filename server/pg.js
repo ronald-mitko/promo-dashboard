@@ -125,6 +125,39 @@ export async function countAdmins() {
   return rows[0].n
 }
 
+// ── Invite tokens (set-password links; one-time, short-lived, hash-only) ──
+let invitesSchemaReady = false
+export async function ensureInvitesSchema() {
+  if (invitesSchemaReady) return
+  await sql`CREATE TABLE IF NOT EXISTS invites (
+    token_hash  TEXT PRIMARY KEY,
+    username    TEXT NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`
+  invitesSchemaReady = true
+}
+export async function createInvite(tokenHash, username, expiresAt) {
+  await ensureInvitesSchema()
+  await sql`INSERT INTO invites (token_hash, username, expires_at) VALUES (${tokenHash}, ${username}, ${expiresAt})`
+}
+// Validate without consuming (for showing the username on the set-password page).
+export async function peekInvite(tokenHash) {
+  await ensureInvitesSchema()
+  const { rows } = await sql`SELECT username FROM invites WHERE token_hash = ${tokenHash} AND used_at IS NULL AND expires_at > now()`
+  return rows[0] ? rows[0].username : null
+}
+// Atomically claim the token; returns username on success (marks used), else null.
+export async function consumeInvite(tokenHash) {
+  await ensureInvitesSchema()
+  const { rows } = await sql`
+    UPDATE invites SET used_at = now()
+    WHERE token_hash = ${tokenHash} AND used_at IS NULL AND expires_at > now()
+    RETURNING username`
+  return rows[0] ? rows[0].username : null
+}
+
 // ── Shared app config (e.g. RCSM ↔ chain ownership) as JSON by key ──
 let configReady = false
 export async function ensureConfigSchema() {

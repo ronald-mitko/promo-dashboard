@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { listUsers, createUser, updateUser, deleteUser } from '../lib/auth'
+import { listUsers, createUser, updateUser, deleteUser, inviteUser } from '../lib/auth'
 import { FIELD, LABEL } from '../lib/ui'
 
-// Admin-only user management: list, add, reset password, toggle admin, remove.
+// Admin-only user management: list, add (with invite link), reset, role, remove.
 export default function UserAdminModal({ onClose, currentUser }) {
   const [users, setUsers] = useState(null)
   const [error, setError] = useState('')
   const [form, setForm] = useState({ username: '', name: '', password: '', admin: false })
   const [busy, setBusy] = useState(false)
+  const [invite, setInvite] = useState(null) // { username, link }
+  const [copied, setCopied] = useState(false)
 
   const load = useCallback(() => {
     setError('')
@@ -15,19 +17,29 @@ export default function UserAdminModal({ onClose, currentUser }) {
   }, [])
   useEffect(() => { load() }, [load])
 
+  const showInvite = (username, link) => { setInvite({ username, link }); setCopied(false) }
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(invite.link); setCopied(true) } catch { /* user can select manually */ }
+  }
+
   const add = async (e) => {
     e.preventDefault()
     setError('')
     setBusy(true)
     try {
-      await createUser(form)
+      const res = await createUser(form) // password optional; blank → res.link
       setForm({ username: '', name: '', password: '', admin: false })
       load()
+      if (res.link) showInvite(res.username, res.link)
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
+  const sendInvite = async (username) => {
+    setError('')
+    try { const res = await inviteUser(username); showInvite(username, res.link) } catch (err) { setError(err.message) }
+  }
   const reset = async (username) => {
-    const pw = window.prompt(`New password for ${username} (min 8 chars):`)
+    const pw = window.prompt(`Set a new password for ${username} (min 8 chars):`)
     if (!pw) return
     try { await updateUser({ username, password: pw }); setError('') } catch (err) { setError(err.message) }
   }
@@ -49,6 +61,19 @@ export default function UserAdminModal({ onClose, currentUser }) {
 
         {error && <div className="mb-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{error}</div>}
 
+        {/* Invite link banner — copy and send however you like */}
+        {invite && (
+          <div className="mb-4 bg-green-2/10 border border-green-2/30 rounded-xl p-3">
+            <div className="text-xs font-bold text-green-3 uppercase tracking-wider mb-1">Invite link for {invite.username}</div>
+            <p className="text-xs text-green-4/60 mb-2">Send this to the user. It expires in 7 days and can be used once.</p>
+            <div className="flex items-center gap-2">
+              <input readOnly value={invite.link} onFocus={(e) => e.target.select()} className={`${FIELD} flex-1 text-xs`} />
+              <button onClick={copy} className="px-3 py-2 rounded-lg bg-green-2 hover:bg-green-3 text-white text-xs font-bold whitespace-nowrap">{copied ? 'Copied!' : 'Copy'}</button>
+              <button onClick={() => setInvite(null)} className="text-green-4/40 hover:text-green-4 text-xs font-bold">Dismiss</button>
+            </div>
+          </div>
+        )}
+
         {/* Existing users */}
         <div className="space-y-2 mb-5">
           {users === null ? (
@@ -56,8 +81,8 @@ export default function UserAdminModal({ onClose, currentUser }) {
           ) : users.length === 0 ? (
             <div className="text-sm text-green-4/40 py-4 text-center">No users yet.</div>
           ) : users.map((u) => (
-            <div key={u.username} className="flex items-center gap-2 border border-green-4/8 rounded-xl px-3 py-2">
-              <div className="flex-1 min-w-0">
+            <div key={u.username} className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-green-4/8 rounded-xl px-3 py-2">
+              <div className="flex-1 min-w-[140px]">
                 <div className="text-sm font-semibold text-green-4 truncate">
                   {u.name || u.username}
                   {u.is_admin && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-3/15 text-orange-3 uppercase tracking-wider">Admin</span>}
@@ -65,7 +90,8 @@ export default function UserAdminModal({ onClose, currentUser }) {
                 </div>
                 <div className="text-xs text-green-4/50 truncate">{u.username}</div>
               </div>
-              <button onClick={() => reset(u.username)} className="text-xs font-bold text-green-3 hover:text-green-4">Reset pw</button>
+              <button onClick={() => sendInvite(u.username)} className="text-xs font-bold text-green-3 hover:text-green-4">Invite link</button>
+              <button onClick={() => reset(u.username)} className="text-xs font-bold text-green-4/60 hover:text-green-4">Set pw</button>
               <button onClick={() => toggleAdmin(u)} className="text-xs font-bold text-green-4/60 hover:text-green-4">{u.is_admin ? 'Revoke admin' : 'Make admin'}</button>
               {u.username !== currentUser && <button onClick={() => remove(u.username)} className="text-xs font-bold text-red-500 hover:text-red-600">Remove</button>}
             </div>
@@ -86,8 +112,8 @@ export default function UserAdminModal({ onClose, currentUser }) {
             </div>
           </div>
           <div className="mt-2">
-            <label className={LABEL}>Temporary password (min 8)</label>
-            <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={`${FIELD} w-full mt-1`} required />
+            <label className={LABEL}>Password <span className="normal-case font-normal text-green-4/40">— leave blank to get an invite link</span></label>
+            <input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="(blank = send invite link)" className={`${FIELD} w-full mt-1`} />
           </div>
           <label className="flex items-center gap-2 mt-2 text-sm text-green-4/80">
             <input type="checkbox" checked={form.admin} onChange={(e) => setForm({ ...form, admin: e.target.checked })} />

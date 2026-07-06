@@ -3,7 +3,7 @@
 //   POST   { username, password, name, admin }  → create
 //   PATCH  { username, password?, name?, admin? } → update (reset pw / rename / role)
 //   DELETE ?username=                     → remove
-import { requireAdmin, authConfigured, hashPassword } from '../../server/auth.js'
+import { requireAdmin, authConfigured, hashPassword, newToken, issueInvite } from '../../server/auth.js'
 import { listUsers, getUser, createUser, updateUser, deleteUser, countAdmins } from '../../server/pg.js'
 
 export default async function handler(req, res) {
@@ -19,11 +19,16 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { username, password, name, admin: isAdmin } = req.body || {}
       const uname = String(username || '').trim().toLowerCase()
-      if (!uname || !password) return res.status(400).json({ error: 'Username and password are required.' })
-      if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' })
+      if (!uname) return res.status(400).json({ error: 'Username is required.' })
+      if (password && String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' })
       if (await getUser(uname)) return res.status(409).json({ error: 'That username already exists.' })
-      await createUser({ username: uname, password_hash: hashPassword(password), name, is_admin: !!isAdmin })
-      return res.status(200).json({ ok: true, username: uname })
+
+      // With a password → set it directly. Without → create with an unusable
+      // random hash and return a one-time invite link for the user to self-set.
+      const password_hash = hashPassword(password || newToken())
+      await createUser({ username: uname, password_hash, name, is_admin: !!isAdmin })
+      const link = password ? null : await issueInvite(req, uname)
+      return res.status(200).json({ ok: true, username: uname, link })
     }
 
     if (req.method === 'PATCH') {

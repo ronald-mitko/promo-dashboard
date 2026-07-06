@@ -60,3 +60,18 @@ export async function updateUser(payload) {
 export async function deleteUser(username) {
   return jsonOrThrow(await fetch(`/api/auth/users?username=${encodeURIComponent(username)}`, { method: 'DELETE' }))
 }
+
+// ── Invite links (set-password) ──
+export async function inviteUser(username) {
+  return jsonOrThrow(await fetch('/api/auth/invite', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username }),
+  })) // → { ok, username, link }
+}
+export async function validateInvite(token) {
+  return jsonOrThrow(await fetch(`/api/auth/invite?token=${encodeURIComponent(token)}`)) // → { username }
+}
+export async function setPasswordWithInvite(token, password) {
+  return jsonOrThrow(await fetch('/api/auth/set-password', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }),
+  }))
+}

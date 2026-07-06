@@ -10,7 +10,7 @@
 // behaves exactly as it did before auth existed.
 // ─────────────────────────────────────────────
 import crypto from 'node:crypto'
-import { pgConfigured, getUser, createUser } from './pg.js'
+import { pgConfigured, getUser, createUser, createInvite } from './pg.js'
 
 const COOKIE = 'hqrc_session'
 const SESSION_TTL_SEC = 7 * 24 * 60 * 60 // 7 days
@@ -45,6 +45,31 @@ export async function ensureBootstrapAdmin() {
   const existing = await getUser(uname)
   if (existing) return
   await createUser({ username: uname, password_hash: hashPassword(pw), name: process.env.AUTH_BOOTSTRAP_NAME || uname, is_admin: true })
+}
+
+// ── One-time invite tokens (raw token goes in the link; only the hash is stored) ──
+export function newToken() {
+  return crypto.randomBytes(32).toString('base64url')
+}
+export function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex')
+}
+// Absolute base URL of the deployment, from proxy headers.
+export function baseUrl(req) {
+  const proto = req.headers['x-forwarded-proto'] || 'https'
+  const host = req.headers['x-forwarded-host'] || req.headers.host
+  return `${proto}://${host}`
+}
+// The set-password link the admin copies (SPA reads ?invite=<token> at the root).
+export function inviteLink(req, token) {
+  return `${baseUrl(req)}/?invite=${encodeURIComponent(token)}`
+}
+// Create a one-time invite for a username and return the copyable link.
+export async function issueInvite(req, username, ttlSec = 7 * 24 * 60 * 60) {
+  const token = newToken()
+  const expiresAt = new Date(Date.now() + ttlSec * 1000).toISOString()
+  await createInvite(hashToken(token), username, expiresAt)
+  return inviteLink(req, token)
 }
 
 // ── Session token: compact HMAC-signed payload (base64url(payload).base64url(sig)) ──

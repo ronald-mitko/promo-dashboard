@@ -2,17 +2,25 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import { apiEnabled } from '../lib/api'
 import { getMe } from '../lib/auth'
 import LoginView from '../views/LoginView'
+import SetPasswordView from '../views/SetPasswordView'
 
 // Exposes the signed-in identity to the app (user/name/admin + whether auth is enforced).
 const AuthContext = createContext({ user: null, name: null, admin: false, configured: false })
 export const useAuth = () => useContext(AuthContext)
 
 // Gates the app behind username/password auth when it's enabled server-side.
+// Invite links (?invite=<token>) are handled first, before the gate's hooks run.
+export default function AuthGate({ children }) {
+  const inviteToken = new URLSearchParams(window.location.search).get('invite')
+  if (inviteToken) return <SetPasswordView token={inviteToken} />
+  return <Gate>{children}</Gate>
+}
+
 // - No backend (local seed dev, VITE_API off) → render the app, no auth.
-// - Auth not configured server-side (no AUTH_SECRET/AUTH_USERS) → render the app.
+// - Auth not configured server-side (no AUTH_SECRET) → render the app.
 // - Configured + authenticated → render the app.
 // - Configured + not authenticated → show the login screen.
-export default function AuthGate({ children }) {
+function Gate({ children }) {
   const [state, setState] = useState(() =>
     apiEnabled()
       ? { loading: true, ok: false, user: null, name: null, admin: false, configured: false }
