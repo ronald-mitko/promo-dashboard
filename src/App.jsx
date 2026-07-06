@@ -566,12 +566,13 @@ function App() {
     }, ...prev])
   }, [rcsms, userName, setRequests])
 
-  const handleApproveRequest = useCallback((id, reason) => {
+  const handleApproveRequest = useCallback((id, reason, frequency) => {
     setRequests(prev => prev.map(r => r.requestId === id ? {
       ...r,
       status: SUBMISSION_STATUS.APPROVED,
-      // Reason chosen at approval → WorkFlag1ReasonJoin in the export.
-      payload: reason ? { ...(r.payload || {}), reasonCode: reason } : r.payload,
+      // Reason + frequency chosen at approval → WorkFlag1ReasonJoin (doubled for
+      // "work every") in the export.
+      payload: reason ? { ...(r.payload || {}), reasonCode: reason, frequency: frequency || 'once' } : r.payload,
       approval_history: [...(r.approval_history || []), histEntry(r.status, SUBMISSION_STATUS.APPROVED, userName)],
     } : r))
   }, [userName, setRequests])

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { formatDateRange } from '../lib/helpers'
-import { REQUEST_TYPE_LABELS, REQUEST_TYPES, WORKFLAG_REASONS } from '../lib/constants'
+import { REQUEST_TYPE_LABELS, REQUEST_TYPES, WORKFLAG_REASONS, WORKFLAG_FREQUENCIES } from '../lib/constants'
 import { perStoreMinutes, workflagStats, clientLoadPerStore, fmtMinutes } from '../lib/estimates'
 import RequestStatusBadge from '../components/RequestStatusBadge'
 import ApprovalControls from '../components/ApprovalControls'
@@ -162,7 +162,8 @@ export default function InboxView({ session, promotions, requests, onApproveProm
                       <ApprovalControls
                         status={it.status}
                         approveReasons={!isPromo && it.raw.type === REQUEST_TYPES.WORKFLAG ? WORKFLAG_REASONS : null}
-                        onApprove={(reason) => (isPromo ? onApprovePromo(it.key) : onApproveRequest(it.key, reason))}
+                        approveFrequencies={!isPromo && it.raw.type === REQUEST_TYPES.WORKFLAG ? WORKFLAG_FREQUENCIES : null}
+                        onApprove={(reason, frequency) => (isPromo ? onApprovePromo(it.key) : onApproveRequest(it.key, reason, frequency))}
                         onReject={(note) => (isPromo ? onRejectPromo(it.key, note) : onRejectRequest(it.key, note))}
                         exportLabel="Export"
                         onExport={() => (isPromo ? onExportPromo(it.key) : onExportRequest(it.key))}

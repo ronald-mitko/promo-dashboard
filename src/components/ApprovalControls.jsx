@@ -1,33 +1,41 @@
 import { useState } from 'react'
 
 // Approve / Reject controls shown to the RCSM for a submitted item.
-// When `approveReasons` is provided, approving requires picking a reason first
-// (used for Home Location Checks → WorkFlag1ReasonJoin). onApprove receives it.
-export default function ApprovalControls({ status, onApprove, onReject, exportLabel, onExport, approveReasons }) {
+// When `approveReasons` is provided, approving requires picking a reason AND a
+// frequency first (Home Location Checks → WorkFlag1ReasonJoin, doubled for
+// "work every"). onApprove receives (reason, frequency).
+export default function ApprovalControls({ status, onApprove, onReject, exportLabel, onExport, approveReasons, approveFrequencies }) {
   const [rejecting, setRejecting] = useState(false)
   const [note, setNote] = useState('')
   const [approving, setApproving] = useState(false)
   const [reason, setReason] = useState('')
+  const [frequency, setFrequency] = useState('')
 
   const inputCls = 'bg-white border border-green-4/15 rounded-lg px-2.5 py-1.5 text-xs text-green-4 focus:outline-none focus:ring-2 focus:ring-green-2/40'
 
   if (status === 'submitted') {
     if (approving) {
+      const ready = reason && frequency
+      const resetApprove = () => { setApproving(false); setReason(''); setFrequency('') }
       return (
         <div className="flex flex-col gap-2 items-stretch min-w-[180px]">
           <select autoFocus value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls}>
             <option value="">Select a reason…</option>
             {approveReasons.map((r) => <option key={r.code} value={r.code}>{r.label}</option>)}
           </select>
+          <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className={inputCls}>
+            <option value="">Work frequency…</option>
+            {(approveFrequencies || []).map((f) => <option key={f.code} value={f.code}>{f.label}</option>)}
+          </select>
           <div className="flex gap-2">
             <button
-              disabled={!reason}
-              onClick={() => { onApprove(reason); setApproving(false); setReason('') }}
-              className={`flex-1 px-3 py-1.5 rounded-lg text-white text-xs font-bold transition-colors ${reason ? 'bg-green-2 hover:bg-green-3' : 'bg-green-2/40 cursor-not-allowed'}`}
+              disabled={!ready}
+              onClick={() => { onApprove(reason, frequency); resetApprove() }}
+              className={`flex-1 px-3 py-1.5 rounded-lg text-white text-xs font-bold transition-colors ${ready ? 'bg-green-2 hover:bg-green-3' : 'bg-green-2/40 cursor-not-allowed'}`}
             >
               Confirm approve
             </button>
-            <button onClick={() => { setApproving(false); setReason('') }} className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-green-4/60 text-xs font-bold transition-colors">Cancel</button>
+            <button onClick={resetApprove} className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-green-4/60 text-xs font-bold transition-colors">Cancel</button>
           </div>
         </div>
       )

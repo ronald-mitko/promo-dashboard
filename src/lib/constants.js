@@ -28,11 +28,20 @@ export const REQUEST_TYPE_LABELS = {
   [REQUEST_TYPES.REPORTING]: 'Reporting',
 }
 
-// WorkFlag1ReasonJoin options the RCSM must pick when approving a Home Location
-// Check; the chosen code is written to the downstream export. Extend this with
-// the business's full reason list (MM is the only confirmed code so far).
+// Reason + frequency the RCSM picks when approving a Home Location Check.
+// The downstream WorkFlag1ReasonJoin = the reason code, DOUBLED for "work every"
+// (e.g. M + work-every → MM), single for "work once" (M).
 export const WORKFLAG_REASONS = [
-  { code: 'MM', label: 'MM — Merchandising' },
+  { code: 'M', label: 'M' },
+  { code: 'Z', label: 'Z' },
+  { code: 'A', label: 'A' },
+  { code: 'B', label: 'B' },
+  { code: 'P', label: 'P' },
+  { code: 'N', label: 'N' },
+]
+export const WORKFLAG_FREQUENCIES = [
+  { code: 'once', label: 'Work once' },
+  { code: 'every_call', label: 'Work every' },
 ]
 
 // Submission lifecycle (promotions + section requests share this spine).
