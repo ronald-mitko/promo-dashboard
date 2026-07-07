@@ -86,8 +86,8 @@ function buildGeneric(req) {
 
 // Priority (promotion): one row of the entered detail.
 function buildPriority(p) {
-  const header = ['Client', 'Retailer', 'Chains', 'Product', 'Brand', 'Category', 'PromoType', 'Start', 'End', 'Mechanic', 'RetailPrice', 'PromoPrice', 'Display']
-  const row = [p.clientName || '', p.retailer || '', (p.chains || []).join('; '), p.product, p.brand, p.category, p.promo_type, mmddyyyy(p.start_date), mmddyyyy(p.end_date), p.mechanic, p.retail_price, p.promo_price, p.display]
+  const header = ['Client', 'Retailer', 'Chains', 'Product', 'Brand', 'Category', 'PromoType', 'Start', 'End', 'Mechanic', 'RetailPrice', 'PromoPrice', 'Display', 'PhotoRequested']
+  const row = [p.clientName || '', p.retailer || '', (p.chains || []).join('; '), p.product, p.brand, p.category, p.promo_type, mmddyyyy(p.start_date), mmddyyyy(p.end_date), p.mechanic, p.retail_price, p.promo_price, p.display, p.photo_requested === 'yes' ? 'Yes' : 'No']
   return { filename: `PRIORITY_${p.promo_id || 'export'}.csv`, content: toCsv([header, row]) }
 }
 

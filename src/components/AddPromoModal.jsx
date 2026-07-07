@@ -30,6 +30,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
     promo_price: '',
     expected_lift: '',
     display: '',
+    photo_requested: 'no',
     checklist_text: '',
   })
   const [formError, setFormError] = useState('')
@@ -110,6 +111,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
         promo_price: editPromo.promo_price != null ? String(editPromo.promo_price) : '',
         expected_lift: editPromo.expected_lift != null ? String(editPromo.expected_lift) : '',
         display: editPromo.display && editPromo.display !== 'None specified' ? editPromo.display : '',
+        photo_requested: editPromo.photo_requested || 'no',
         checklist_text: (editPromo.checklist || []).join('\n'),
       })
     } else {
@@ -158,6 +160,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
       retail_price: retailPrice,
       promo_price: promoPrice,
       display: formData.display || 'None specified',
+      photo_requested: formData.priority_type === 'shelf' ? 'no' : (formData.photo_requested || 'no'),
       status: computeStatus(formData.start_date, formData.end_date),
       checklist: formData.checklist_text ? formData.checklist_text.split('\n').filter(l => l.trim()) : ['Verify price tag updated', 'Check stock levels', 'Photo verification required'],
     }
@@ -167,7 +170,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
       onAddPromo({ promo_id: generatePromoId(fields.retailer, formData.promo_type), ...fields })
     }
     // Reset form
-    setFormData({ teamId: '', teamName: '', clientId: '', clientName: '', chains: [], retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', checklist_text: '' })
+    setFormData({ teamId: '', teamName: '', clientId: '', clientName: '', chains: [], retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', photo_requested: 'no', checklist_text: '' })
     setFormError('')
     onClose()
   }
@@ -487,6 +490,15 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
                 <label className={LABEL}>Display Requirements</label>
                 <textarea value={formData.display} onChange={(e) => handleFormChange('display', e.target.value)} placeholder="e.g. Endcap display in pet aisle" rows={2} className={`${FIELD} placeholder:text-green-4/30 resize-none`}/>
               </div>
+              {formData.priority_type !== 'shelf' && (
+                <div className="flex flex-col gap-1">
+                  <label className={LABEL}>Photo Requested?</label>
+                  <select value={formData.photo_requested} onChange={(e) => handleFormChange('photo_requested', e.target.value)} className={FIELD}>
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <label className={LABEL}>Compliance Checklist (one item per line)</label>
                 <textarea value={formData.checklist_text} onChange={(e) => handleFormChange('checklist_text', e.target.value)} placeholder={"Verify price tag updated\nCheck stock levels\nPhoto verification required"} rows={3} className={`${FIELD} placeholder:text-green-4/30 resize-none`}/>

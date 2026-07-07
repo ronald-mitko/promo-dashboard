@@ -75,7 +75,7 @@ export const DATE_PRESETS = [2, 4, 6, 8] // weeks
 
 // Fields collected when HQ enters a brand-new item in the Authorize wizard.
 export const NEW_ITEM_FIELDS = [
-  { key: 'upc', label: 'UPC', required: true },
+  { key: 'upc', label: 'UPC (12 digits)', required: true },
   { key: 'description', label: 'Description', required: true },
   { key: 'brand', label: 'Brand', required: false },
   { key: 'category', label: 'Category', required: false },

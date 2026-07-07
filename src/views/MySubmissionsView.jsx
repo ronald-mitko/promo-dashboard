@@ -22,6 +22,7 @@ function promoDetail(p) {
     ['Promo price', p.promo_price != null ? `$${p.promo_price}` : '—'],
     ['Expected lift', p.expected_lift != null ? `${p.expected_lift}%` : '—'],
     ['Display', p.display],
+    ['Photo requested', p.photo_requested === 'yes' ? 'Yes' : 'No'],
     ['Submitted by', p.submitted_by || '—'],
     ['Submitted at', p.submitted_at ? fmtTs(p.submitted_at) : '—'],
   ]

@@ -33,6 +33,7 @@ function ReviewPanel({ raw, kind }) {
         <Row label="Mechanic" value={raw.mechanic} />
         <Row label="Price" value={raw.retail_price != null ? `$${raw.retail_price} → $${raw.promo_price}` : '—'} />
         <Row label="Display" value={raw.display} />
+        <Row label="Photo requested" value={raw.photo_requested === 'yes' ? 'Yes' : 'No'} />
       </div>
     )
   }

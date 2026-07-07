@@ -229,6 +229,7 @@ export function NewItemsStep({ state, dispatch, config }) {
         <button type="button" onClick={() => dispatch({ type: 'ADD_NEW_ITEM', item: {} })} className="px-3 py-1.5 rounded-lg bg-green-3 hover:bg-green-4 text-white text-xs font-bold">+ Add item</button>
       </div>
       {state.newItems.length === 0 && <p className="text-sm text-green-4/40">No items yet. Click “Add item” to enter a new UPC.</p>}
+      <p className="text-xs text-green-4/50 mb-2">Enter UPCs as 12 digits (numbers only).</p>
       <div className="space-y-3">
         {state.newItems.map((item, idx) => (
           <div key={idx} className="border border-green-4/10 rounded-xl p-3">
@@ -237,15 +238,24 @@ export function NewItemsStep({ state, dispatch, config }) {
               <button type="button" onClick={() => dispatch({ type: 'REMOVE_NEW_ITEM', index: idx })} className="text-red-400 hover:text-red-600 text-xs font-bold">Remove</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {fields.map((f) => (
-                <input
-                  key={f.key}
-                  value={item[f.key] || ''}
-                  onChange={(e) => dispatch({ type: 'UPDATE_NEW_ITEM', index: idx, field: f.key, value: e.target.value })}
-                  placeholder={f.label + (f.required ? ' *' : '')}
-                  className={`${inputCls} ${f.key === 'description' ? 'col-span-2' : ''}`}
-                />
-              ))}
+              {fields.map((f) => {
+                const isUpc = f.key === 'upc'
+                const val = item[f.key] || ''
+                const badUpc = isUpc && val.length > 0 && val.length !== 12
+                return (
+                  <div key={f.key} className={f.key === 'description' ? 'col-span-2' : ''}>
+                    <input
+                      value={val}
+                      inputMode={isUpc ? 'numeric' : undefined}
+                      maxLength={isUpc ? 12 : undefined}
+                      onChange={(e) => dispatch({ type: 'UPDATE_NEW_ITEM', index: idx, field: f.key, value: isUpc ? e.target.value.replace(/\D/g, '').slice(0, 12) : e.target.value })}
+                      placeholder={f.label + (f.required ? ' *' : '')}
+                      className={`${inputCls} w-full ${badUpc ? 'border-orange-3' : ''}`}
+                    />
+                    {badUpc && <div className="text-[10px] text-orange-3 mt-0.5">UPC must be 12 digits ({val.length}/12)</div>}
+                  </div>
+                )
+              })}
             </div>
           </div>
         ))}
