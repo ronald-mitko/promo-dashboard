@@ -291,7 +291,9 @@ function App() {
   // Session: lightweight role switch (HQ enters/submits; RCSM approves/exports)
   const [session, setSession] = useLocalStorageState(STORAGE_KEYS.session, loadInitialSession)
   const role = session.role || ROLES.HQ
-  const userName = session.userName || 'User'
+  // When auth is enforced, a person's name comes from their login account and
+  // can't be self-edited; otherwise fall back to the local session name (demo).
+  const userName = (auth.configured && auth.user) ? (auth.name || auth.user) : (session.userName || 'User')
 
   // RCSM directory + workflow requests collection
   const [rcsms, setRcsms] = useLocalStorageState(STORAGE_KEYS.rcsms, () => SEED_RCSMS)
@@ -754,7 +756,7 @@ function App() {
                   ))}
                 </select>
               </div>
-            ) : (
+            ) : (auth.configured && auth.user) ? null : (
               <div className="flex flex-col gap-1 mb-3">
                 <label className={LABEL}>Your Name</label>
                 <input type="text" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} placeholder="Your name" className={`${FIELD} placeholder:text-green-4/30`}/>

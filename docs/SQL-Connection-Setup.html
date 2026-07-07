@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Azure / Fabric SQL Connection Guide</title>
+<style>
+  @page { size: Letter; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+    color: #14332D; font-size: 10.5pt; line-height: 1.5; margin: 0;
+  }
+  h1 { color: #007B4E; font-size: 22pt; margin: 0 0 2px; }
+  h2 { color: #007B4E; font-size: 14pt; margin: 22px 0 6px; padding-bottom: 4px; border-bottom: 2px solid #00C48D; break-after: avoid; }
+  h3 { color: #14332D; font-size: 11.5pt; margin: 14px 0 4px; break-after: avoid; }
+  p { margin: 6px 0; }
+  code, .mono { font-family: "Consolas", "Courier New", monospace; font-size: 9.5pt; }
+  code { background: #FFF3E3; padding: 1px 5px; border-radius: 4px; color: #14332D; }
+  a { color: #007B4E; }
+  .lead { color: #14332D; opacity: .8; font-size: 11pt; }
+  .tagline { color: #FF9527; font-weight: bold; font-size: 9pt; letter-spacing: .04em; text-transform: uppercase; }
+  .header { border-bottom: 3px solid #007B4E; padding-bottom: 10px; margin-bottom: 8px; }
+  .badge { display:inline-block; background:#00C48D; color:#fff; font-size:8pt; font-weight:bold; padding:2px 8px; border-radius:10px; vertical-align:middle; text-transform:uppercase; letter-spacing:.04em; }
+  ul, ol { margin: 6px 0 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9.5pt; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #14332D22; vertical-align: top; }
+  th { background: #007B4E; color: #fff; font-size: 9pt; text-transform: uppercase; letter-spacing: .03em; }
+  tr:nth-child(even) td { background: #FFF3E3; }
+  .box { background: #FFF3E3; border: 1px solid #00C48D55; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+  .warn { background: #FFF3E3; border-left: 4px solid #FF9527; border-radius: 4px; padding: 8px 12px; margin: 10px 0; }
+  .codeblock { background: #14332D; color: #E8F5EE; border-radius: 8px; padding: 10px 14px; margin: 8px 0; font-family: "Consolas","Courier New",monospace; font-size: 9pt; line-height: 1.5; white-space: pre-wrap; }
+  .diagram { width: 100%; margin: 10px 0; }
+  .node { border: 2px solid #007B4E; border-radius: 8px; padding: 8px 10px; text-align: center; background: #fff; }
+  .node .t { font-weight: bold; color: #007B4E; font-size: 10pt; }
+  .node .s { font-size: 8.5pt; opacity: .8; }
+  .node.alt { border-color: #FF9527; }
+  .node.alt .t { color: #FF9527; }
+  .arrow { text-align:center; color:#14332D88; font-size: 14pt; line-height: 1; }
+  .small { font-size: 9pt; opacity: .75; }
+  .avoidbreak { break-inside: avoid; }
+  footer { margin-top: 18px; border-top: 1px solid #14332D22; padding-top: 6px; font-size: 8pt; color: #14332D99; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="tagline">Advantage Solutions &middot; HQ to Retail Connector</div>
+  <h1>Azure / Fabric SQL Connection Guide</h1>
+  <p class="lead">How the app connects to Microsoft Fabric SQL for reference data via an Azure AD service principal &mdash; and how to set up the same connection on a new project.</p>
+</div>
+
+<h2>1. How the connection works</h2>
+<p>Reference data (teams, clients, chains, stores, items) is read live from a <strong>Microsoft Fabric SQL analytics endpoint</strong>. The connection is authenticated with an <strong>Azure AD service principal</strong> (an app registration) &mdash; there is no SQL username/password. The app requests a short-lived Azure AD <em>access token</em> and connects with it. Only the server-side code holds credentials; the browser never connects to SQL.</p>
+
+<table class="diagram avoidbreak">
+  <tr>
+    <td style="width:31%"><div class="node"><div class="t">Serverless API</div><div class="s">server-side code</div></div></td>
+    <td style="width:7%" class="arrow">&rarr;</td>
+    <td style="width:31%"><div class="node alt"><div class="t">Azure AD</div><div class="s">issues access token</div></div></td>
+    <td style="width:7%" class="arrow">&rarr;</td>
+    <td style="width:24%"><div class="node"><div class="t">Fabric SQL</div><div class="s">reference data</div></div></td>
+  </tr>
+</table>
+
+<h3>Step by step, inside the app</h3>
+<ol>
+  <li>Acquire an Azure AD token for scope <code>https://database.windows.net/.default</code>.</li>
+  <li>In production, use <code>ClientSecretCredential</code> (tenant id + client id + client secret). Locally, if those are absent, fall back to <code>DefaultAzureCredential</code> &mdash; i.e. your <code>az login</code> session.</li>
+  <li>Open a <code>tedious</code> (TDS) connection to the Fabric SQL server on port <strong>1433</strong>, <code>encrypt: true</code>, authenticating with the token (<code>azure-active-directory-access-token</code>).</li>
+  <li>Run parameterized queries; transient failures (timeouts, dropped sockets, token issues) are retried automatically.</li>
+</ol>
+
+<div class="box">
+<strong>Libraries used:</strong> <code>@azure/identity</code> (token acquisition) and <code>tedious</code> (SQL Server / Fabric TDS driver).
+</div>
+
+<h2>2. Environment variables</h2>
+<p>These are the only values needed for the Azure / Fabric connection. Store them as environment variables &mdash; in the hosting platform (e.g. Vercel &rarr; Settings &rarr; Environment Variables) for production, or in a git-ignored <code>.env.local</code> for local development. Never commit them.</p>
+<table>
+  <tr><th>Variable</th><th>Purpose</th><th>Where it comes from</th></tr>
+  <tr><td class="mono">AAD_TENANT_ID</td><td>Azure AD tenant that owns the service principal</td><td>Azure Portal &rarr; app registration &rarr; Overview</td></tr>
+  <tr><td class="mono">AAD_CLIENT_ID</td><td>Service principal (application) client id</td><td>Azure Portal &rarr; app registration &rarr; Overview</td></tr>
+  <tr><td class="mono">AAD_CLIENT_SECRET</td><td>Service principal client secret</td><td>App registration &rarr; Certificates &amp; secrets</td></tr>
+  <tr><td class="mono">FABRIC_SQL_SERVER</td><td>Fabric SQL endpoint host name</td><td>Fabric &rarr; SQL analytics endpoint &rarr; Connection string</td></tr>
+  <tr><td class="mono">FABRIC_SQL_DATABASE</td><td>Database / lakehouse name</td><td>Fabric SQL analytics endpoint</td></tr>
+</table>
+<p class="small">If <code>AAD_CLIENT_ID</code> / <code>AAD_CLIENT_SECRET</code> are not set, the code falls back to <code>DefaultAzureCredential</code> (useful locally with <code>az login</code>). If <code>FABRIC_SQL_SERVER</code> is not set, reference endpoints return <code>503</code> cleanly instead of failing.</p>
+
+<h2>3. Setting up the connection on a new project</h2>
+<ol>
+  <li><strong>Register (or reuse) the Azure AD service principal.</strong> In Azure Portal &rarr; App registrations, reuse the existing "WorkFlag Submission" registration or create a new one. Record the <strong>Tenant ID</strong> and <strong>Client ID</strong> from the Overview page.</li>
+  <li><strong>Create a client secret.</strong> App registration &rarr; Certificates &amp; secrets &rarr; New client secret. Copy the value immediately (it is shown only once) into <code>AAD_CLIENT_SECRET</code>.</li>
+  <li><strong>Grant the principal access in Fabric.</strong> Open the Fabric workspace that exposes the SQL analytics endpoint &rarr; <strong>Manage access</strong> &rarr; add the service principal with an appropriate role (Viewer/Contributor). See the gotcha below.</li>
+  <li><strong>Get the Fabric connection details.</strong> In Fabric, open the SQL analytics endpoint &rarr; Settings / Connection string. Copy the <strong>server</strong> host into <code>FABRIC_SQL_SERVER</code> and the database/lakehouse name into <code>FABRIC_SQL_DATABASE</code>.</li>
+  <li><strong>Set the five environment variables</strong> (section 2) in the new project's settings.</li>
+  <li><strong>Deploy and verify</strong> (section 5).</li>
+</ol>
+
+<div class="warn"><strong>Key gotcha &mdash; grant access in Fabric, not with SQL.</strong> The Fabric endpoint is a Lakehouse/Warehouse SQL analytics endpoint, so <code>CREATE USER &hellip; FROM EXTERNAL PROVIDER</code> fails with <strong>Msg 22424</strong>. Add the service principal through the Fabric workspace <strong>Manage access</strong> UI instead &mdash; that is what grants the token permission to read the endpoint.</div>
+
+<h2>4. Local development</h2>
+<p>Two options for authenticating locally:</p>
+<ul>
+  <li><strong>Service principal:</strong> put <code>AAD_TENANT_ID</code>, <code>AAD_CLIENT_ID</code>, <code>AAD_CLIENT_SECRET</code>, and the <code>FABRIC_SQL_*</code> values in a git-ignored <code>.env.local</code>.</li>
+  <li><strong>Your own Azure identity:</strong> run <code>az login</code> and set only the <code>FABRIC_SQL_*</code> values &mdash; the code uses <code>DefaultAzureCredential</code> automatically.</li>
+</ul>
+<div class="codeblock">cp .env.local.example .env.local   # then fill in the AAD_* and FABRIC_SQL_* values
+# ...or, to use your own identity:
+az login</div>
+
+<h2>5. Verifying the connection</h2>
+<ul>
+  <li>Load a screen that lists teams / clients / chains. If the lists populate, the token and Fabric grant are working.</li>
+  <li><strong>Empty lists</strong> usually mean the service principal is not granted in the Fabric workspace, or a team/period filter mismatch. Check the server logs for an Azure AD token error or a login failure.</li>
+  <li>A message like <em>"Could not login because the authentication failed"</em> points to a missing Fabric access grant (step 3) or an expired/incorrect client secret.</li>
+  <li>Always test against the <strong>latest deployment URL</strong> &mdash; a stale pinned preview URL will not have your newest environment variables.</li>
+</ul>
+
+<h2>6. Security notes</h2>
+<ul>
+  <li>Never commit secrets. <code>.env.local</code> is git-ignored; paste values directly into the hosting platform's environment fields.</li>
+  <li>Treat <code>AAD_CLIENT_SECRET</code> as highly sensitive. Rotate it on a schedule and whenever staff with access change.</li>
+  <li>The browser never sees the token or the secret &mdash; only the server-side code requests the token and opens the SQL connection.</li>
+  <li>When running a local server, bind to <code>127.0.0.1</code> rather than <code>0.0.0.0</code>.</li>
+</ul>
+
+<footer>
+  Advantage Solutions &middot; HQ to Retail Connector &mdash; Azure / Fabric SQL connection reference. &nbsp; Auth: Azure AD service principal &rarr; access token &rarr; Fabric SQL (read-only reference data).
+</footer>
+
+</body>
+</html>
