@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     authenticated: !!session,
     user: session ? session.username : null,
     name: session ? session.name : null,
+    email: session ? session.email : null,
     admin: session ? !!session.admin : false,
   })
 }

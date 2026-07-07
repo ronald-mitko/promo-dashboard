@@ -18,9 +18,9 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid username or password.' })
     }
 
-    const user = { username: u.username, name: u.name || u.username, admin: u.is_admin }
+    const user = { username: u.username, name: u.name || u.username, email: u.email || null, admin: u.is_admin }
     res.setHeader('Set-Cookie', sessionCookie(signSession(user)))
-    return res.status(200).json({ ok: true, user: user.username, name: user.name, admin: user.admin })
+    return res.status(200).json({ ok: true, user: user.username, name: user.name, email: user.email, admin: user.admin })
   } catch (err) {
     return res.status(500).json({ error: String(err.message || err) })
   }

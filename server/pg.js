@@ -78,10 +78,13 @@ export async function ensureUsersSchema() {
     username       TEXT PRIMARY KEY,
     password_hash  TEXT NOT NULL,
     name           TEXT,
+    email          TEXT,
     is_admin       BOOLEAN NOT NULL DEFAULT false,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
   )`
+  // Backfill the column on pre-existing tables.
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`
   usersSchemaReady = true
 }
 export async function getUser(username) {
@@ -91,23 +94,24 @@ export async function getUser(username) {
 }
 export async function listUsers() {
   await ensureUsersSchema()
-  const { rows } = await sql`SELECT username, name, is_admin, created_at FROM users ORDER BY username`
+  const { rows } = await sql`SELECT username, name, email, is_admin, created_at FROM users ORDER BY username`
   return rows
 }
-export async function createUser({ username, password_hash, name, is_admin }) {
+export async function createUser({ username, password_hash, name, email, is_admin }) {
   await ensureUsersSchema()
   const { rowCount } = await sql`
-    INSERT INTO users (username, password_hash, name, is_admin)
-    VALUES (${username}, ${password_hash}, ${name || username}, ${!!is_admin})
+    INSERT INTO users (username, password_hash, name, email, is_admin)
+    VALUES (${username}, ${password_hash}, ${name || username}, ${email || null}, ${!!is_admin})
     ON CONFLICT (username) DO NOTHING`
   return { username, created: rowCount > 0 }
 }
-export async function updateUser(username, { password_hash, name, is_admin }) {
+export async function updateUser(username, { password_hash, name, email, is_admin }) {
   await ensureUsersSchema()
   const sets = []
   const params = []
   if (password_hash !== undefined) { params.push(password_hash); sets.push(`password_hash = $${params.length}`) }
   if (name !== undefined) { params.push(name); sets.push(`name = $${params.length}`) }
+  if (email !== undefined) { params.push(email); sets.push(`email = $${params.length}`) }
   if (is_admin !== undefined) { params.push(is_admin); sets.push(`is_admin = $${params.length}`) }
   if (!sets.length) return { username }
   params.push(username)

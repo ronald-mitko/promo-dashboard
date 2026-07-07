@@ -6,7 +6,7 @@ import { FIELD, LABEL } from '../lib/ui'
 export default function UserAdminModal({ onClose, currentUser }) {
   const [users, setUsers] = useState(null)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ username: '', name: '', password: '', admin: false })
+  const [form, setForm] = useState({ username: '', name: '', email: '', password: '', admin: false })
   const [busy, setBusy] = useState(false)
   const [invite, setInvite] = useState(null) // { username, link }
   const [copied, setCopied] = useState(false)
@@ -28,7 +28,7 @@ export default function UserAdminModal({ onClose, currentUser }) {
     setBusy(true)
     try {
       const res = await createUser(form) // password optional; blank → res.link
-      setForm({ username: '', name: '', password: '', admin: false })
+      setForm({ username: '', name: '', email: '', password: '', admin: false })
       load()
       if (res.link) showInvite(res.username, res.link)
     } catch (err) { setError(err.message) } finally { setBusy(false) }
@@ -42,6 +42,11 @@ export default function UserAdminModal({ onClose, currentUser }) {
     const pw = window.prompt(`Set a new password for ${username} (min 8 chars):`)
     if (!pw) return
     try { await updateUser({ username, password: pw }); setError('') } catch (err) { setError(err.message) }
+  }
+  const setEmailFor = async (u) => {
+    const email = window.prompt(`Notification email for ${u.username}:`, u.email || '')
+    if (email === null) return
+    try { await updateUser({ username: u.username, email: email.trim() }); load() } catch (err) { setError(err.message) }
   }
   const toggleAdmin = async (u) => {
     try { await updateUser({ username: u.username, admin: !u.is_admin }); load() } catch (err) { setError(err.message) }
@@ -88,9 +93,10 @@ export default function UserAdminModal({ onClose, currentUser }) {
                   {u.is_admin && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-3/15 text-orange-3 uppercase tracking-wider">Admin</span>}
                   {u.username === currentUser && <span className="ml-1 text-[10px] text-green-4/40">(you)</span>}
                 </div>
-                <div className="text-xs text-green-4/50 truncate">{u.username}</div>
+                <div className="text-xs text-green-4/50 truncate">{u.username}{u.email ? ` · ${u.email}` : ''}</div>
               </div>
               <button onClick={() => sendInvite(u.username)} className="text-xs font-bold text-green-3 hover:text-green-4">Invite link</button>
+              <button onClick={() => setEmailFor(u)} className="text-xs font-bold text-green-4/60 hover:text-green-4">{u.email ? 'Edit email' : 'Set email'}</button>
               <button onClick={() => reset(u.username)} className="text-xs font-bold text-green-4/60 hover:text-green-4">Set pw</button>
               <button onClick={() => toggleAdmin(u)} className="text-xs font-bold text-green-4/60 hover:text-green-4">{u.is_admin ? 'Revoke admin' : 'Make admin'}</button>
               {u.username !== currentUser && <button onClick={() => remove(u.username)} className="text-xs font-bold text-red-500 hover:text-red-600">Remove</button>}
@@ -110,6 +116,10 @@ export default function UserAdminModal({ onClose, currentUser }) {
               <label className={LABEL}>Name</label>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`${FIELD} w-full mt-1`} />
             </div>
+          </div>
+          <div className="mt-2">
+            <label className={LABEL}>Email <span className="normal-case font-normal text-green-4/40">— for approval notifications</span></label>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="name@youradv.com" className={`${FIELD} w-full mt-1`} />
           </div>
           <div className="mt-2">
             <label className={LABEL}>Password <span className="normal-case font-normal text-green-4/40">— leave blank to get an invite link</span></label>

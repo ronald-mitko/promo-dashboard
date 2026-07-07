@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { username, password, name, admin: isAdmin } = req.body || {}
+      const { username, password, name, email, admin: isAdmin } = req.body || {}
       const uname = String(username || '').trim().toLowerCase()
       if (!uname) return res.status(400).json({ error: 'Username is required.' })
       if (password && String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' })
@@ -26,13 +26,13 @@ export default async function handler(req, res) {
       // With a password → set it directly. Without → create with an unusable
       // random hash and return a one-time invite link for the user to self-set.
       const password_hash = hashPassword(password || newToken())
-      await createUser({ username: uname, password_hash, name, is_admin: !!isAdmin })
+      await createUser({ username: uname, password_hash, name, email: email || null, is_admin: !!isAdmin })
       const link = password ? null : await issueInvite(req, uname)
       return res.status(200).json({ ok: true, username: uname, link })
     }
 
     if (req.method === 'PATCH') {
-      const { username, password, name, admin: isAdmin } = req.body || {}
+      const { username, password, name, email, admin: isAdmin } = req.body || {}
       const uname = String(username || '').trim().toLowerCase()
       const target = uname ? await getUser(uname) : null
       if (!target) return res.status(404).json({ error: 'User not found.' })
@@ -42,6 +42,7 @@ export default async function handler(req, res) {
       }
       const patch = {}
       if (name !== undefined) patch.name = name
+      if (email !== undefined) patch.email = email
       if (isAdmin !== undefined) patch.is_admin = !!isAdmin
       if (password) {
         if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' })

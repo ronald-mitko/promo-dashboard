@@ -44,7 +44,7 @@ export async function ensureBootstrapAdmin() {
   if (!uname || !pw) return
   const existing = await getUser(uname)
   if (existing) return
-  await createUser({ username: uname, password_hash: hashPassword(pw), name: process.env.AUTH_BOOTSTRAP_NAME || uname, is_admin: true })
+  await createUser({ username: uname, password_hash: hashPassword(pw), name: process.env.AUTH_BOOTSTRAP_NAME || uname, email: process.env.AUTH_BOOTSTRAP_EMAIL || null, is_admin: true })
 }
 
 // ── One-time invite tokens (raw token goes in the link; only the hash is stored) ──
@@ -74,7 +74,7 @@ export async function issueInvite(req, username, ttlSec = 7 * 24 * 60 * 60) {
 
 // ── Session token: compact HMAC-signed payload (base64url(payload).base64url(sig)) ──
 export function signSession(user, ttlSec = SESSION_TTL_SEC) {
-  const body = { sub: user.username, name: user.name || user.username, admin: !!user.admin, exp: Math.floor(Date.now() / 1000) + ttlSec }
+  const body = { sub: user.username, name: user.name || user.username, email: user.email || null, admin: !!user.admin, exp: Math.floor(Date.now() / 1000) + ttlSec }
   const payload = Buffer.from(JSON.stringify(body)).toString('base64url')
   const sig = crypto.createHmac('sha256', secret()).update(payload).digest('base64url')
   return `${payload}.${sig}`
@@ -89,7 +89,7 @@ export function verifySession(token) {
   let data
   try { data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) } catch { return null }
   if (!data.exp || data.exp < Math.floor(Date.now() / 1000)) return null
-  return { username: data.sub, name: data.name, admin: !!data.admin }
+  return { username: data.sub, name: data.name, email: data.email || null, admin: !!data.admin }
 }
 
 // ── Cookies ──

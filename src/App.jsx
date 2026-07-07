@@ -9,7 +9,8 @@ import { toLocalYMD } from './lib/helpers'
 import { resolveRcsmForRecord, rcsmName } from './lib/routing'
 import { downloadExport } from './lib/exportFormat'
 import { apiEnabled, listSubmissions, saveSubmission, deleteSubmission, toSubmissionRecord, getConfig, saveConfig } from './lib/api'
-import { SUBMISSION_STATUS, REQUEST_TYPES, PRIORITY_TYPES } from './lib/constants'
+import { SUBMISSION_STATUS, REQUEST_TYPES, REQUEST_TYPE_LABELS, PRIORITY_TYPES } from './lib/constants'
+import { notify } from './lib/notify'
 import RequestStatusBadge from './components/RequestStatusBadge'
 import RequestButtons from './components/RequestButtons'
 import {
@@ -538,21 +539,28 @@ function App() {
   // ── Approval flow: HQ submits → routed to owning RCSM → RCSM approves/rejects
   const histEntry = (from, to, by, note) => ({ at: new Date().toISOString(), from, to, by, ...(note ? { note } : {}) })
 
+  const requestLabel = (r) => `${REQUEST_TYPE_LABELS[r.type] || r.type}${r.clientName ? ` — ${r.clientName}` : ''}`
+
   const handleSubmitPromo = useCallback((promoId) => {
-    setPromotions(prev => prev.map(p => {
-      if (p.promo_id !== promoId) return p
-      const routed = resolveRcsmForRecord(p, rcsms)
-      return { ...p, submission_status: SUBMISSION_STATUS.SUBMITTED, submitted_by: userName, submitted_at: new Date().toISOString(), routed_rcsm: routed, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.SUBMITTED, userName)] }
-    }))
-  }, [rcsms, userName])
+    const target = promotions.find(p => p.promo_id === promoId)
+    const routed = target ? resolveRcsmForRecord(target, rcsms) : null
+    setPromotions(prev => prev.map(p => p.promo_id === promoId
+      ? { ...p, submission_status: SUBMISSION_STATUS.SUBMITTED, submitted_by: userName, submitter_email: auth.email || null, submitted_at: new Date().toISOString(), routed_rcsm: routed, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.SUBMITTED, userName)] }
+      : p))
+    if (target) notify('submitted', { routedRcsmId: routed, itemLabel: `Priority: ${target.product}`, submitterName: userName })
+  }, [rcsms, userName, auth.email, promotions])
 
   const handleApprovePromo = useCallback((promoId) => {
     setPromotions(prev => prev.map(p => p.promo_id === promoId ? { ...p, submission_status: SUBMISSION_STATUS.APPROVED, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.APPROVED, userName)] } : p))
-  }, [userName])
+    const p = promotions.find(x => x.promo_id === promoId)
+    if (p) notify('approved', { submitterEmail: p.submitter_email, itemLabel: `Priority: ${p.product}` })
+  }, [userName, promotions])
 
   const handleRejectPromo = useCallback((promoId, note) => {
     setPromotions(prev => prev.map(p => p.promo_id === promoId ? { ...p, submission_status: SUBMISSION_STATUS.REJECTED, approval_history: [...(p.approval_history || []), histEntry(p.submission_status, SUBMISSION_STATUS.REJECTED, userName, note)] } : p))
-  }, [userName])
+    const p = promotions.find(x => x.promo_id === promoId)
+    if (p) notify('rejected', { submitterEmail: p.submitter_email, itemLabel: `Priority: ${p.product}`, note })
+  }, [userName, promotions])
 
   // Workflow requests (authorize/workflag/support/reporting) — added in later phases
   const handleAddRequest = useCallback((req) => {
@@ -561,12 +569,14 @@ function App() {
       ...req,
       requestId: req.requestId || genId('req'),
       submittedBy: userName,
+      submitter_email: auth.email || null,
       submittedAt: new Date().toISOString(),
       status: SUBMISSION_STATUS.SUBMITTED,
       routed_rcsm: routed,
       approval_history: [histEntry('draft', SUBMISSION_STATUS.SUBMITTED, userName)],
     }, ...prev])
-  }, [rcsms, userName, setRequests])
+    notify('submitted', { routedRcsmId: routed, itemLabel: requestLabel(req), submitterName: userName })
+  }, [rcsms, userName, auth.email, setRequests])
 
   const handleApproveRequest = useCallback((id, reason, frequency) => {
     setRequests(prev => prev.map(r => r.requestId === id ? {
@@ -577,11 +587,15 @@ function App() {
       payload: reason ? { ...(r.payload || {}), reasonCode: reason, frequency: frequency || 'once' } : r.payload,
       approval_history: [...(r.approval_history || []), histEntry(r.status, SUBMISSION_STATUS.APPROVED, userName)],
     } : r))
-  }, [userName, setRequests])
+    const r = requests.find(x => x.requestId === id)
+    if (r) notify('approved', { submitterEmail: r.submitter_email, itemLabel: requestLabel(r) })
+  }, [userName, setRequests, requests])
 
   const handleRejectRequest = useCallback((id, note) => {
     setRequests(prev => prev.map(r => r.requestId === id ? { ...r, status: SUBMISSION_STATUS.REJECTED, approval_history: [...(r.approval_history || []), histEntry(r.status, SUBMISSION_STATUS.REJECTED, userName, note)] } : r))
-  }, [userName, setRequests])
+    const r = requests.find(x => x.requestId === id)
+    if (r) notify('rejected', { submitterEmail: r.submitter_email, itemLabel: requestLabel(r), note })
+  }, [userName, setRequests, requests])
 
   const handleExportRequest = useCallback((id) => {
     const req = requests.find(r => r.requestId === id)

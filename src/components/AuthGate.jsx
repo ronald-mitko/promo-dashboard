@@ -5,7 +5,7 @@ import LoginView from '../views/LoginView'
 import SetPasswordView from '../views/SetPasswordView'
 
 // Exposes the signed-in identity to the app (user/name/admin + whether auth is enforced).
-const AuthContext = createContext({ user: null, name: null, admin: false, configured: false })
+const AuthContext = createContext({ user: null, name: null, email: null, admin: false, configured: false })
 export const useAuth = () => useContext(AuthContext)
 
 // Gates the app behind username/password auth when it's enabled server-side.
@@ -23,21 +23,17 @@ export default function AuthGate({ children }) {
 function Gate({ children }) {
   const [state, setState] = useState(() =>
     apiEnabled()
-      ? { loading: true, ok: false, user: null, name: null, admin: false, configured: false }
-      : { loading: false, ok: true, user: null, name: null, admin: false, configured: false },
+      ? { loading: true, ok: false, user: null, name: null, email: null, admin: false, configured: false }
+      : { loading: false, ok: true, user: null, name: null, email: null, admin: false, configured: false },
   )
 
-  const refresh = () => getMe().then((m) =>
-    setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, admin: !!m.admin, configured: m.configured }),
-  )
+  const apply = (m) => setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, email: m.email, admin: !!m.admin, configured: m.configured })
+  const refresh = () => getMe().then(apply)
 
   useEffect(() => {
     if (!apiEnabled()) return
     let alive = true
-    getMe().then((m) => {
-      if (!alive) return
-      setState({ loading: false, ok: !m.configured || m.authenticated, user: m.user, name: m.name, admin: !!m.admin, configured: m.configured })
-    })
+    getMe().then((m) => { if (alive) apply(m) })
     return () => { alive = false }
   }, [])
 
@@ -47,7 +43,7 @@ function Gate({ children }) {
   if (!state.ok) return <LoginView onSignedIn={refresh} />
 
   return (
-    <AuthContext.Provider value={{ user: state.user, name: state.name, admin: state.admin, configured: state.configured }}>
+    <AuthContext.Provider value={{ user: state.user, name: state.name, email: state.email, admin: state.admin, configured: state.configured }}>
       {children}
     </AuthContext.Provider>
   )

@@ -21,8 +21,9 @@ export default function RcsmAdminView({ rcsms, setRcsms, seedRefData }) {
     })))
   }
   const rename = (rcsmId, name) => setRcsms((prev) => prev.map((r) => (r.rcsmId === rcsmId ? { ...r, name } : r)))
+  const setEmail = (rcsmId, email) => setRcsms((prev) => prev.map((r) => (r.rcsmId === rcsmId ? { ...r, email } : r)))
   const removeAccount = (rcsmId, account) => setRcsms((prev) => prev.map((r) => (r.rcsmId === rcsmId ? { ...r, accounts: (r.accounts || []).filter((a) => a !== account) } : r)))
-  const addRcsm = () => setRcsms((prev) => [...prev, { rcsmId: `rcsm_${Math.random().toString(36).slice(2, 8)}`, name: 'New RCSM', accounts: [] }])
+  const addRcsm = () => setRcsms((prev) => [...prev, { rcsmId: `rcsm_${Math.random().toString(36).slice(2, 8)}`, name: 'New RCSM', email: '', accounts: [] }])
 
   const input = FIELD
   const label = LABEL
@@ -42,6 +43,7 @@ export default function RcsmAdminView({ rcsms, setRcsms, seedRefData }) {
                 <input value={r.name} onChange={(e) => rename(r.rcsmId, e.target.value)} className={`${input} flex-1`} />
                 <button onClick={() => setRcsms((prev) => prev.filter((x) => x.rcsmId !== r.rcsmId))} className="text-red-400 hover:text-red-600 text-xs font-bold px-2">Remove</button>
               </div>
+              <input type="email" value={r.email || ''} onChange={(e) => setEmail(r.rcsmId, e.target.value)} placeholder="Notification email (name@youradv.com)" className={`${input} w-full mb-2`} />
               <div className="flex flex-wrap gap-1.5">
                 {(r.accounts || []).length === 0 && <span className="text-xs text-green-4/40">No clients assigned</span>}
                 {(r.accounts || []).map((a) => (
