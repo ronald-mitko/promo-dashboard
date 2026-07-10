@@ -19,6 +19,9 @@ export default function WorkflowSection({ type, requests, refData, onAddRequest 
       teamName: req.teamName, clientName: req.clientName,
       chains: req.chains || [], stores: req.stores || [], items: req.items || [],
       newItems: req.newItems || [],
+      existingItems: req.type === 'authorize_existing'
+        ? (req.newItems || []).map((n) => ({ itemUpc: n.upc, description: n.description, brand: n.brand, category: n.category, size: n.size, pack: n.pack }))
+        : [],
       reasonCode: p.reasonCode || '', frequency: p.frequency || 'once',
       startDate: p.startDate || '', endDate: p.endDate || '',
       comment: req.comment || '', payload: p,

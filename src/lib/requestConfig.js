@@ -2,7 +2,7 @@ import { REQUEST_TYPES } from './constants'
 import { formatDateRange } from './helpers'
 import {
   ConfirmStep, TeamStep, ClientStep, ChainsStep, StoresStep, ItemsStep,
-  NewItemsStep, WorkflagDetailsStep, AuthorizeDetailsStep, ReviewStep,
+  NewItemsStep, ProductSearchStep, WorkflagDetailsStep, AuthorizeDetailsStep, ReviewStep,
 } from '../components/wizard/steps'
 
 // Required contract confirmation shown first in every wizard flow.
@@ -94,6 +94,43 @@ export const REQUEST_CONFIG = {
       totalRows: s.chains.length * s.newItems.length,
       comment: s.comment,
       payload: { authType: s.payload.authType, effectiveDate: s.payload.effectiveDate },
+    }),
+  },
+
+  // ── Authorize an existing item: pick from dim_Products, assign to accounts ──
+  [REQUEST_TYPES.AUTHORIZE_EXISTING]: {
+    type: REQUEST_TYPES.AUTHORIZE_EXISTING,
+    title: 'Authorize Existing Item',
+    steps: [
+      confirmStep,
+      { id: 'team', label: 'Team', Component: TeamStep, validate: (s) => !!s.teamId },
+      { id: 'client', label: 'Client', Component: ClientStep, validate: (s) => !!s.clientId },
+      { id: 'products', label: 'Items', Component: ProductSearchStep, validate: (s) => s.existingItems.length > 0 },
+      { id: 'chains', label: 'Accounts', Component: ChainsStep, validate: (s) => s.chains.length > 0 },
+      { id: 'details', label: 'Authorization', Component: AuthorizeDetailsStep, validate: (s) => !!s.payload.authType && !!s.payload.effectiveDate },
+      { id: 'review', label: 'Review', Component: ReviewStep, validate: () => true },
+    ],
+    summarize: (s) => [
+      { label: 'Team', value: s.teamName },
+      { label: 'Client', value: s.clientName },
+      { label: 'Items', value: String(s.existingItems.length) },
+      { label: 'Accounts', value: s.chains.join(', ') || '—' },
+      { label: 'Auth type', value: s.payload.authType || '—' },
+      { label: 'Effective', value: s.payload.effectiveDate || '—' },
+      { label: 'Comment', value: s.comment || '—' },
+    ],
+    buildRecord: (s, refData) => ({
+      type: REQUEST_TYPES.AUTHORIZE_EXISTING,
+      teamName: s.teamName,
+      clientName: s.clientName,
+      masterChain: chainMaster(s, refData),
+      chains: s.chains,
+      // Stored in the newItems shape (upc/description/brand) so the export reuses buildAuthorize.
+      newItems: s.existingItems.map((it) => ({ upc: it.itemUpc, description: it.description, brand: it.brand, category: it.category, size: it.size, pack: it.pack })),
+      itemCount: s.existingItems.length,
+      totalRows: s.chains.length * s.existingItems.length,
+      comment: s.comment,
+      payload: { authType: s.payload.authType, effectiveDate: s.payload.effectiveDate, existing: true },
     }),
   },
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DATE_PRESETS, NEW_ITEM_FIELDS, CONTRACT_CONFIRM_TEXT } from '../../lib/constants'
 import { formatDateRange, toLocalYMD } from '../../lib/helpers'
-import { apiEnabled } from '../../lib/api'
+import { apiEnabled, reference } from '../../lib/api'
 import { FIELD, LABEL } from '../../lib/ui'
 
 // Shared field/label style tokens (single source in lib/ui).
@@ -272,6 +272,64 @@ export function NewItemsStep({ state, dispatch, config }) {
               })}
             </div>
           </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Step: Search + pick existing item(s) from dim_Products (authorize-existing) ─
+export function ProductSearchStep({ state, dispatch, refData }) {
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const selected = state.existingItems || []
+  const isSel = (upc) => selected.some((x) => x.itemUpc === upc)
+  const toggle = (item) => {
+    const next = isSel(item.itemUpc) ? selected.filter((x) => x.itemUpc !== item.itemUpc) : [...selected, item]
+    dispatch({ type: 'SET', field: 'existingItems', value: next })
+  }
+
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) { setResults([]); return }
+    let alive = true
+    setLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        if (apiEnabled()) {
+          const rows = await reference.products(q)
+          if (alive) setResults(rows)
+        } else {
+          const ql = q.toLowerCase()
+          const rows = (refData.items || []).filter((it) => (it.description || '').toLowerCase().includes(ql) || String(it.itemUpc || '').includes(q))
+          if (alive) setResults(rows)
+        }
+      } catch { if (alive) setResults([]) } finally { if (alive) setLoading(false) }
+    }, 300)
+    return () => { alive = false; clearTimeout(t) }
+  }, [search, refData.items])
+
+  return (
+    <div>
+      <label className={labelCls}>Find existing item(s)</label>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by UPC or description…" className={`${inputCls} w-full my-2`} />
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selected.map((it) => (
+            <span key={it.itemUpc} className="inline-flex items-center gap-1 text-xs font-semibold bg-green-2/15 text-green-3 rounded-full px-2.5 py-0.5">
+              {it.description || it.itemUpc}
+              <button type="button" onClick={() => toggle(it)} className="text-green-3/60 hover:text-red-500">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-64 overflow-y-auto">
+        {loading && <div className="text-sm text-green-4/40 px-3 py-3">Searching…</div>}
+        {!loading && search.trim().length < 2 && <div className="text-sm text-green-4/40 px-3 py-3">Type at least 2 characters to search.</div>}
+        {!loading && search.trim().length >= 2 && results.length === 0 && <div className="text-sm text-green-4/40 px-3 py-3">No products found.</div>}
+        {results.map((it) => (
+          <CheckRow key={it.itemUpc} title={it.description || '(no description)'} subtitle={`${it.itemUpc}${it.brand ? ` · ${it.brand}` : ''}`} checked={isSel(it.itemUpc)} onChange={() => toggle(it)} />
         ))}
       </div>
     </div>

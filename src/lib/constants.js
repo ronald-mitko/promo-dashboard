@@ -15,14 +15,16 @@ export const ROLE_LABELS = {
 
 // Workflow request types.
 export const REQUEST_TYPES = {
-  AUTHORIZE: 'authorize',
+  AUTHORIZE: 'authorize',                   // new item build (enter new UPCs)
+  AUTHORIZE_EXISTING: 'authorize_existing', // authorize an existing item into a new account
   WORKFLAG: 'workflag',
   SUPPORT: 'support',
   REPORTING: 'reporting',
 }
 
 export const REQUEST_TYPE_LABELS = {
-  [REQUEST_TYPES.AUTHORIZE]: 'Authorize Items',
+  [REQUEST_TYPES.AUTHORIZE]: 'Authorize New Item',
+  [REQUEST_TYPES.AUTHORIZE_EXISTING]: 'Authorize Existing Item',
   [REQUEST_TYPES.WORKFLAG]: 'Home Location Check',
   [REQUEST_TYPES.SUPPORT]: 'Retail Support',
   [REQUEST_TYPES.REPORTING]: 'Reporting',

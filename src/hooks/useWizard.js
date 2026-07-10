@@ -8,7 +8,8 @@ export const WIZARD_DEFAULTS = {
   chains: [],      // chain names (authorize)
   stores: [],      // store ids (workflag)
   items: [],       // item upcs (workflag)
-  newItems: [],    // [{upc, description, brand, category, family, size, pack}] (authorize)
+  newItems: [],    // [{upc, description, brand, category, family, size, pack}] (authorize new)
+  existingItems: [], // [{itemUpc, description, brand, category}] (authorize existing, from dim_Products)
   reasonCode: '',
   frequency: 'once',
   startDate: '', endDate: '',

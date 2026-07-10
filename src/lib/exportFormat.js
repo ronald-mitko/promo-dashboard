@@ -97,6 +97,7 @@ export function buildExport(rec) {
   switch (rec.type) {
     case REQUEST_TYPES.WORKFLAG: return buildWorkflag(rec)
     case REQUEST_TYPES.AUTHORIZE: return buildAuthorize(rec)
+    case REQUEST_TYPES.AUTHORIZE_EXISTING: return buildAuthorize(rec)
     default: return buildGeneric(rec)
   }
 }

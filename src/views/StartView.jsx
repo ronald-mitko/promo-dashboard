@@ -30,8 +30,8 @@ export default function StartView({ onAuthorize, onHomeLocationCheck, onViewPrio
           onClick={() => setShowTypes((v) => !v)}
         />
         <Card
-          title="Authorize new items"
-          desc="Enter new UPCs and the chains to authorize them in"
+          title="Authorize items"
+          desc="Build a new item, or authorize an existing item into a new account"
           accent="bg-orange-3/15 text-orange-3"
           icon={<><circle cx="12" cy="12" r="9" /><path d="M9 12l2 2 4-4" /></>}
           onClick={onAuthorize}

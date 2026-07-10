@@ -31,8 +31,8 @@ export function useReferenceData(state, seed, type) {
 
   useEffect(() => {
     if (!enabled || !teamId) { setChains([]); return }
-    if (type === REQUEST_TYPES.AUTHORIZE) {
-      // Authorize: full team chain universe from SL_Combined (no client needed)
+    if (type === REQUEST_TYPES.AUTHORIZE || type === REQUEST_TYPES.AUTHORIZE_EXISTING) {
+      // Authorize (new or existing): full team chain universe from SL_Combined (total routing)
       reference.authChains(teamId).then(setChains).catch(() => setChains([]))
     } else if (clientId) {
       reference.chains(teamId, clientId).then(setChains).catch(() => setChains([]))

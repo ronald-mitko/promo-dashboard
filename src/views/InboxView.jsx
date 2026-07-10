@@ -54,10 +54,10 @@ function ReviewPanel({ raw, kind }) {
       </div>
     )
   }
-  if (raw.type === REQUEST_TYPES.AUTHORIZE) {
+  if (raw.type === REQUEST_TYPES.AUTHORIZE || raw.type === REQUEST_TYPES.AUTHORIZE_EXISTING) {
     return (
       <div className="mt-3 pt-3 border-t border-green-4/8">
-        <Row label="Chains" value={(raw.chains || []).join(', ')} />
+        <Row label={raw.type === REQUEST_TYPES.AUTHORIZE_EXISTING ? 'Accounts' : 'Chains'} value={(raw.chains || []).join(', ')} />
         <Row label="Auth type" value={raw.payload?.authType} />
         <Row label="Effective" value={raw.payload?.effectiveDate} />
         <div className="text-[11px] font-semibold text-green-4/50 uppercase tracking-wider mt-2 mb-1">New items ({raw.newItems?.length || 0})</div>

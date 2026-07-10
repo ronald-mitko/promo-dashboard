@@ -21,6 +21,7 @@ export const reference = {
   authChains: (teamId) => getJson(`/api/reference?resource=authChains&teamId=${encodeURIComponent(teamId)}`),
   stores: (teamId, clientId, chainIds) => getJson(`/api/reference?resource=stores&teamId=${encodeURIComponent(teamId)}&clientId=${encodeURIComponent(clientId)}&chainId=${encodeURIComponent((chainIds || []).join(','))}`),
   items: (teamId, clientId, chainIds = []) => getJson(`/api/reference?resource=items&teamId=${encodeURIComponent(teamId)}&clientId=${encodeURIComponent(clientId)}${chainIds.length ? `&chainId=${encodeURIComponent(chainIds.join(','))}` : ''}`),
+  products: (search) => getJson(`/api/reference?resource=products&search=${encodeURIComponent(search || '')}`),
 }
 
 // ── Submissions (Vercel Postgres) ──

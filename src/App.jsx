@@ -30,6 +30,7 @@ import InboxView from './views/InboxView'
 import MySubmissionsView from './views/MySubmissionsView'
 import RcsmAdminView from './views/RcsmAdminView'
 import WorkflowSection from './views/workflows/WorkflowSection'
+import AuthorizeSection from './views/AuthorizeSection'
 
 // Run additive localStorage migration once at module load.
 runMigration()
@@ -844,7 +845,7 @@ function App() {
             {activeTab === 'inbox' && 'Approve or reject items routed to you, then export for your system'}
             {activeTab === 'promotions' && 'All entered priorities — request reporting on any of them'}
             {activeTab === 'promodash' && 'Detailed promotion cards and filters'}
-            {activeTab === 'authorize' && 'Enter new items and the chains to authorize them in'}
+            {activeTab === 'authorize' && 'Build a new item, or authorize an existing item into a new account'}
             {activeTab === 'workflag' && 'Direct the field to verify the home shelf location of specific products'}
             {activeTab === 'calendar' && 'Timeline view of all promotional events across retailers'}
             {activeTab === 'submissions' && 'Track the status of everything you have submitted'}
@@ -858,7 +859,7 @@ function App() {
         {activeTab === 'promotions' && <PrioritiesListView promotions={promotions} role={role} onSubmitPromo={role === ROLES.HQ ? handleSubmitPromo : null} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={handleAddRequest} onAddPriority={() => { setAddPriorityType('promo_display'); openAddModal() }}/>}
         {activeTab === 'promodash' && <PromotionsView promotions={promoOnly} role={role} onDeletePromo={role === ROLES.HQ ? handleDeletePromo : null} onSubmitPromo={handleSubmitPromo} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={role === ROLES.HQ ? handleAddRequest : null} brandColors={brandColors} onShowAddModal={openAddModal} retailerChainData={retailerChainData}/>}
         {activeTab === 'calendar' && <CalendarView promotions={promotions} brandColors={brandColors} onShowAddModal={openAddModal}/>}
-        {activeTab === 'authorize' && <WorkflowSection type={REQUEST_TYPES.AUTHORIZE} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
+        {activeTab === 'authorize' && <AuthorizeSection requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
         {activeTab === 'workflag' && <WorkflowSection type={REQUEST_TYPES.WORKFLAG} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
         {activeTab === 'submissions' && <MySubmissionsView promotions={promotions} requests={requests} rcsms={rcsms} onAddRequest={handleAddRequest}/>}
         {activeTab === 'rcsms' && <RcsmAdminView rcsms={rcsms} setRcsms={setRcsms} seedRefData={refData}/>}
