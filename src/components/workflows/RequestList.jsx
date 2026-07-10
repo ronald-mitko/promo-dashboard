@@ -4,7 +4,7 @@ import { REQUEST_TYPES, REQUEST_TYPE_LABELS } from '../../lib/constants'
 import { latestRejectionReason } from '../../lib/helpers'
 
 // Table of requests for one type, with a Clone action + per-row reporting (not for authorize).
-export default function RequestList({ requests, onClone, onAddRequest }) {
+export default function RequestList({ requests, onClone, onAddRequest, onSubmitRequest }) {
   if (requests.length === 0) {
     return <div className="text-center py-12 text-sm text-green-4/40 bg-white rounded-2xl border border-green-4/8">No requests yet. Click “New request” to build one.</div>
   }
@@ -38,6 +38,9 @@ export default function RequestList({ requests, onClone, onAddRequest }) {
                 <td className="px-4 py-3"><RequestStatusBadge status={r.status} /></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-3">
+                    {onSubmitRequest && r.status === 'draft' && (
+                      <button onClick={() => onSubmitRequest(r.requestId)} className="px-3 py-1.5 rounded-lg bg-green-3 hover:bg-green-4 text-white text-xs font-bold transition-colors">Submit</button>
+                    )}
                     {onAddRequest && r.type !== REQUEST_TYPES.AUTHORIZE && (
                       <RequestButtons
                         size="xs"

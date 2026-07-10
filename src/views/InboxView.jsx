@@ -92,7 +92,7 @@ export default function InboxView({ session, promotions, requests, onApproveProm
   // (live chain names often don't match the seeded RCSM account lists yet) so
   // submissions are never lost.
   const myPromos = promotions.filter((p) => (p.routed_rcsm === myId || !p.routed_rcsm) && p.submission_status !== 'draft')
-  const myRequests = requests.filter((r) => r.routed_rcsm === myId || !r.routed_rcsm)
+  const myRequests = requests.filter((r) => (r.routed_rcsm === myId || !r.routed_rcsm) && r.status !== 'draft')
   const items = [
     ...myPromos.map((p) => ({ key: p.promo_id, kind: 'promotion', client: p.clientName || p.brand || 'Unassigned', status: p.submission_status, raw: p })),
     ...myRequests.map((r) => ({ key: r.requestId, kind: 'request', client: r.clientName || 'Unassigned', status: r.status, raw: r })),

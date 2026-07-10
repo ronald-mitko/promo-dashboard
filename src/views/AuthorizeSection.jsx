@@ -3,7 +3,7 @@ import { REQUEST_TYPES } from '../lib/constants'
 import WorkflowSection from './workflows/WorkflowSection'
 
 // Authorize hub: choose "new item build" or "authorize an existing item".
-export default function AuthorizeSection({ requests, refData, onAddRequest, initialMode }) {
+export default function AuthorizeSection({ requests, refData, onAddRequest, onBulkImport, onSubmitRequest, initialMode }) {
   const [mode, setMode] = useState(initialMode === 'existing' ? 'existing' : 'new')
   const type = mode === 'existing' ? REQUEST_TYPES.AUTHORIZE_EXISTING : REQUEST_TYPES.AUTHORIZE
 
@@ -27,7 +27,7 @@ export default function AuthorizeSection({ requests, refData, onAddRequest, init
         ))}
       </div>
       {/* key forces a fresh wizard/list when switching modes */}
-      <WorkflowSection key={type} type={type} requests={requests} refData={refData} onAddRequest={onAddRequest} />
+      <WorkflowSection key={type} type={type} requests={requests} refData={refData} onAddRequest={onAddRequest} onBulkImport={onBulkImport} onSubmitRequest={onSubmitRequest} />
     </div>
   )
 }

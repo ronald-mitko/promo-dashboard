@@ -579,6 +579,36 @@ function App() {
     notify('submitted', { routedRcsmId: routed, itemLabel: requestLabel(req), submitterName: userName })
   }, [rcsms, userName, auth.email, setRequests])
 
+  // ── Bulk upload → create drafts to review, then submit ──
+  const handleBulkAddPromos = useCallback((records) => {
+    const drafts = records.map((r) => withPromoDefaults({ ...r, promo_id: genId('promo') }))
+    setPromotions(prev => [...drafts, ...prev])
+  }, [])
+
+  const handleBulkAddRequests = useCallback((records) => {
+    const drafts = records.map((r) => ({
+      ...r,
+      requestId: genId('req'),
+      submittedBy: userName,
+      submitter_email: auth.email || null,
+      submittedAt: new Date().toISOString(),
+      status: SUBMISSION_STATUS.DRAFT,
+      routed_rcsm: null,
+      approval_history: [],
+    }))
+    setRequests(prev => [...drafts, ...prev])
+  }, [userName, auth.email, setRequests])
+
+  // Submit a draft request → route to the owning RCSM + notify.
+  const handleSubmitRequest = useCallback((id) => {
+    const target = requests.find(r => r.requestId === id)
+    const routed = target ? resolveRcsmForRecord(target, rcsms) : null
+    setRequests(prev => prev.map(r => r.requestId === id
+      ? { ...r, status: SUBMISSION_STATUS.SUBMITTED, routed_rcsm: routed, submittedAt: new Date().toISOString(), approval_history: [...(r.approval_history || []), histEntry(SUBMISSION_STATUS.DRAFT, SUBMISSION_STATUS.SUBMITTED, userName)] }
+      : r))
+    if (target) notify('submitted', { routedRcsmId: routed, itemLabel: requestLabel(target), submitterName: userName })
+  }, [rcsms, userName, requests])
+
   const handleApproveRequest = useCallback((id, reason, frequency) => {
     setRequests(prev => prev.map(r => r.requestId === id ? {
       ...r,
@@ -856,11 +886,11 @@ function App() {
         {/* Views */}
         {activeTab === 'start' && <StartView onAuthorize={() => setActiveTab('authorize')} onHomeLocationCheck={() => setActiveTab('workflag')} onViewPriorities={() => setActiveTab('promotions')} onAddPriority={(type) => { setAddPriorityType(type); openAddModal() }}/>}
         {activeTab === 'inbox' && <InboxView session={session} promotions={promotions} requests={requests} onApprovePromo={handleApprovePromo} onRejectPromo={handleRejectPromo} onApproveRequest={handleApproveRequest} onRejectRequest={handleRejectRequest} onExportRequest={handleExportRequest} onExportPromo={handleExportPromo}/>}
-        {activeTab === 'promotions' && <PrioritiesListView promotions={promotions} role={role} onSubmitPromo={role === ROLES.HQ ? handleSubmitPromo : null} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={handleAddRequest} onAddPriority={() => { setAddPriorityType('promo_display'); openAddModal() }}/>}
+        {activeTab === 'promotions' && <PrioritiesListView promotions={promotions} role={role} onSubmitPromo={role === ROLES.HQ ? handleSubmitPromo : null} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={handleAddRequest} onAddPriority={() => { setAddPriorityType('promo_display'); openAddModal() }} onBulkImport={role === ROLES.HQ ? handleBulkAddPromos : null}/>}
         {activeTab === 'promodash' && <PromotionsView promotions={promoOnly} role={role} onDeletePromo={role === ROLES.HQ ? handleDeletePromo : null} onSubmitPromo={handleSubmitPromo} onEditPromo={role === ROLES.HQ ? handleEditPromo : null} onAddRequest={role === ROLES.HQ ? handleAddRequest : null} brandColors={brandColors} onShowAddModal={openAddModal} retailerChainData={retailerChainData}/>}
         {activeTab === 'calendar' && <CalendarView promotions={promotions} brandColors={brandColors} onShowAddModal={openAddModal}/>}
-        {activeTab === 'authorize' && <AuthorizeSection requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
-        {activeTab === 'workflag' && <WorkflowSection type={REQUEST_TYPES.WORKFLAG} requests={requests} refData={refData} onAddRequest={handleAddRequest}/>}
+        {activeTab === 'authorize' && <AuthorizeSection requests={requests} refData={refData} onAddRequest={handleAddRequest} onBulkImport={handleBulkAddRequests} onSubmitRequest={handleSubmitRequest}/>}
+        {activeTab === 'workflag' && <WorkflowSection type={REQUEST_TYPES.WORKFLAG} requests={requests} refData={refData} onAddRequest={handleAddRequest} onBulkImport={handleBulkAddRequests} onSubmitRequest={handleSubmitRequest}/>}
         {activeTab === 'submissions' && <MySubmissionsView promotions={promotions} requests={requests} rcsms={rcsms} onAddRequest={handleAddRequest}/>}
         {activeTab === 'rcsms' && <RcsmAdminView rcsms={rcsms} setRcsms={setRcsms} seedRefData={refData}/>}
       </main>
