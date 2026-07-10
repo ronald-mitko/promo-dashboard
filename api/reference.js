@@ -133,6 +133,22 @@ export default async function handler(req, res) {
       })))
     }
 
+    // Distinct brand / family / category values from dim_Products, for the
+    // new-item build dropdowns (keeps entered values consistent with the master).
+    if (resource === 'productAttributes') {
+      const distinct = async (col) => {
+        const rows = await queryRows(
+          `SELECT DISTINCT ${col} AS v FROM dim_Products WHERE ${col} IS NOT NULL AND ${col} <> '' ORDER BY ${col}`,
+          [],
+        )
+        return rows.map((r) => r.v)
+      }
+      const [brands, families, categories] = await Promise.all([
+        distinct('brand_description'), distinct('family_description'), distinct('category_name'),
+      ])
+      return res.status(200).json({ brands, families, categories })
+    }
+
     if (resource === 'items') {
       if (!teamId || !clientId) return res.status(400).json({ error: 'teamId and clientId are required' })
       const base = [

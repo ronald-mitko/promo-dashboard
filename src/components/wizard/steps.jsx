@@ -233,9 +233,27 @@ export function ItemsStep({ state, dispatch, refData }) {
   )
 }
 
+// Brand / family / category are picked from existing dim_Products values.
+const NEW_ITEM_DROPDOWNS = { brand: 'brands', family: 'families', category: 'categories' }
+
 // Step: New items (authorize/pricing — manual creation) ─────────────────────
-export function NewItemsStep({ state, dispatch, config }) {
+export function NewItemsStep({ state, dispatch, config, refData }) {
   const fields = config?.itemFields || NEW_ITEM_FIELDS
+  const [attrs, setAttrs] = useState({ brands: [], families: [], categories: [] })
+
+  useEffect(() => {
+    let alive = true
+    if (apiEnabled()) {
+      reference.productAttributes()
+        .then((a) => { if (alive) setAttrs({ brands: a.brands || [], families: a.families || [], categories: a.categories || [] }) })
+        .catch(() => {})
+    } else {
+      const uniq = (key) => [...new Set((refData?.items || []).map((it) => it[key]).filter(Boolean))].sort()
+      setAttrs({ brands: uniq('brand'), families: uniq('family'), categories: uniq('category') })
+    }
+    return () => { alive = false }
+  }, [refData])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -243,7 +261,7 @@ export function NewItemsStep({ state, dispatch, config }) {
         <button type="button" onClick={() => dispatch({ type: 'ADD_NEW_ITEM', item: {} })} className="px-3 py-1.5 rounded-lg bg-green-3 hover:bg-green-4 text-white text-xs font-bold">+ Add item</button>
       </div>
       {state.newItems.length === 0 && <p className="text-sm text-green-4/40">No items yet. Click “Add item” to enter a new UPC.</p>}
-      <p className="text-xs text-green-4/50 mb-2">Enter UPCs as 12 digits (numbers only).</p>
+      <p className="text-xs text-green-4/50 mb-2">Enter UPCs as 12 digits (numbers only). Brand, family, and category are chosen from existing product values.</p>
       <div className="space-y-3">
         {state.newItems.map((item, idx) => (
           <div key={idx} className="border border-green-4/10 rounded-xl p-3">
@@ -256,16 +274,28 @@ export function NewItemsStep({ state, dispatch, config }) {
                 const isUpc = f.key === 'upc'
                 const val = item[f.key] || ''
                 const badUpc = isUpc && val.length > 0 && val.length !== 12
+                const dropdown = NEW_ITEM_DROPDOWNS[f.key]
+                const options = dropdown ? (attrs[dropdown] || []) : null
+                const onChange = (value) => dispatch({ type: 'UPDATE_NEW_ITEM', index: idx, field: f.key, value })
                 return (
                   <div key={f.key} className={f.key === 'description' ? 'col-span-2' : ''}>
-                    <input
-                      value={val}
-                      inputMode={isUpc ? 'numeric' : undefined}
-                      maxLength={isUpc ? 12 : undefined}
-                      onChange={(e) => dispatch({ type: 'UPDATE_NEW_ITEM', index: idx, field: f.key, value: isUpc ? e.target.value.replace(/\D/g, '').slice(0, 12) : e.target.value })}
-                      placeholder={f.label + (f.required ? ' *' : '')}
-                      className={`${inputCls} w-full ${badUpc ? 'border-orange-3' : ''}`}
-                    />
+                    {options ? (
+                      <select value={val} onChange={(e) => onChange(e.target.value)} className={`${inputCls} w-full`}>
+                        <option value="">{f.label}{f.required ? ' *' : ''}</option>
+                        {/* keep a previously-entered value that isn't in the list */}
+                        {val && !options.includes(val) && <option value={val}>{val}</option>}
+                        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        value={val}
+                        inputMode={isUpc ? 'numeric' : undefined}
+                        maxLength={isUpc ? 12 : undefined}
+                        onChange={(e) => onChange(isUpc ? e.target.value.replace(/\D/g, '').slice(0, 12) : e.target.value)}
+                        placeholder={f.label + (f.required ? ' *' : '')}
+                        className={`${inputCls} w-full ${badUpc ? 'border-orange-3' : ''}`}
+                      />
+                    )}
                     {badUpc && <div className="text-[10px] text-orange-3 mt-0.5">UPC must be 12 digits ({val.length}/12)</div>}
                   </div>
                 )
