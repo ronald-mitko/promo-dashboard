@@ -317,10 +317,13 @@ export function NewItemsStep({ state, dispatch, config, refData }) {
   )
 }
 
-// Step: Search + pick existing item(s) from dim_Products (authorize-existing) ─
+// Step: Search + pick existing item(s) (authorize-existing) ──────────────────
+// Defaults to the selected client's items; "All products" searches dim_Products.
 export function ProductSearchStep({ state, dispatch, refData }) {
   const [search, setSearch] = useState('')
-  const [results, setResults] = useState([])
+  const [scope, setScope] = useState('client') // 'client' | 'all'
+  const [pool, setPool] = useState([])            // client's items (client scope)
+  const [allResults, setAllResults] = useState([]) // dim_Products search (all scope)
   const [loading, setLoading] = useState(false)
   const selected = state.existingItems || []
   const isSel = (upc) => selected.some((x) => x.itemUpc === upc)
@@ -329,30 +332,55 @@ export function ProductSearchStep({ state, dispatch, refData }) {
     dispatch({ type: 'SET', field: 'existingItems', value: next })
   }
 
+  // Client scope: load the client's items once (the searchable pool).
   useEffect(() => {
+    if (scope !== 'client') return
+    let alive = true
+    if (apiEnabled() && state.teamId && state.clientId) {
+      setLoading(true)
+      reference.items(state.teamId, state.clientId)
+        .then((rows) => { if (alive) setPool(rows) })
+        .catch(() => { if (alive) setPool([]) })
+        .finally(() => { if (alive) setLoading(false) })
+    } else {
+      setPool(refData?.items || [])
+    }
+    return () => { alive = false }
+  }, [scope, state.teamId, state.clientId, refData])
+
+  // All-products scope: search dim_Products on the fly.
+  useEffect(() => {
+    if (scope !== 'all') return
     const q = search.trim()
-    if (q.length < 2) { setResults([]); return }
+    if (q.length < 2) { setAllResults([]); return }
     let alive = true
     setLoading(true)
     const t = setTimeout(async () => {
       try {
-        if (apiEnabled()) {
-          const rows = await reference.products(q)
-          if (alive) setResults(rows)
-        } else {
-          const ql = q.toLowerCase()
-          const rows = (refData.items || []).filter((it) => (it.description || '').toLowerCase().includes(ql) || String(it.itemUpc || '').includes(q))
-          if (alive) setResults(rows)
-        }
-      } catch { if (alive) setResults([]) } finally { if (alive) setLoading(false) }
+        if (apiEnabled()) { const rows = await reference.products(q); if (alive) setAllResults(rows) }
+        else { const ql = q.toLowerCase(); if (alive) setAllResults((refData?.items || []).filter((it) => (it.description || '').toLowerCase().includes(ql) || String(it.itemUpc || '').includes(q))) }
+      } catch { if (alive) setAllResults([]) } finally { if (alive) setLoading(false) }
     }, 300)
     return () => { alive = false; clearTimeout(t) }
-  }, [search, refData.items])
+  }, [scope, search, refData])
+
+  const ql = search.trim().toLowerCase()
+  const results = scope === 'all'
+    ? allResults
+    : (ql.length < 1 ? pool : pool.filter((it) => (it.description || '').toLowerCase().includes(ql) || String(it.itemUpc || '').includes(search.trim()))).slice(0, 100)
 
   return (
     <div>
-      <label className={labelCls}>Find existing item(s)</label>
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by UPC or description…" className={`${inputCls} w-full my-2`} />
+      <div className="flex items-center justify-between mb-1">
+        <label className={labelCls}>Find existing item(s)</label>
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-green-4/50 mr-1">From:</span>
+          {[{ id: 'client', label: 'This client' }, { id: 'all', label: 'All products' }].map((s) => (
+            <button key={s.id} type="button" onClick={() => setScope(s.id)} className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${scope === s.id ? 'bg-green-2 text-white' : 'bg-green-4/5 text-green-4/60 hover:text-green-4'}`}>{s.label}</button>
+          ))}
+        </div>
+      </div>
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={scope === 'all' ? 'Search all products by UPC or description…' : "Search this client's items…"} className={`${inputCls} w-full my-2`} />
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {selected.map((it) => (
@@ -364,9 +392,9 @@ export function ProductSearchStep({ state, dispatch, refData }) {
         </div>
       )}
       <div className="border border-green-4/10 rounded-xl divide-y divide-green-4/5 max-h-64 overflow-y-auto">
-        {loading && <div className="text-sm text-green-4/40 px-3 py-3">Searching…</div>}
-        {!loading && search.trim().length < 2 && <div className="text-sm text-green-4/40 px-3 py-3">Type at least 2 characters to search.</div>}
-        {!loading && search.trim().length >= 2 && results.length === 0 && <div className="text-sm text-green-4/40 px-3 py-3">No products found.</div>}
+        {loading && <div className="text-sm text-green-4/40 px-3 py-3">Loading…</div>}
+        {!loading && scope === 'all' && search.trim().length < 2 && <div className="text-sm text-green-4/40 px-3 py-3">Type at least 2 characters to search all products.</div>}
+        {!loading && results.length === 0 && (scope === 'client' || search.trim().length >= 2) && <div className="text-sm text-green-4/40 px-3 py-3">No items found.</div>}
         {results.map((it) => (
           <CheckRow key={it.itemUpc} title={it.description || '(no description)'} subtitle={`${it.itemUpc}${it.brand ? ` · ${it.brand}` : ''}`} checked={isSel(it.itemUpc)} onChange={() => toggle(it)} />
         ))}

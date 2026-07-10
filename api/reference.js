@@ -138,24 +138,28 @@ export default async function handler(req, res) {
     // client's items when teamId + clientId are supplied, else the whole table.
     if (resource === 'productAttributes') {
       const clientScope = !!(teamId && clientId)
-      const distinct = async (col) => {
+      // Client scope reads the client's own authorized items (dim_AUTHS_T2 — the
+      // same source as the items list, always populated). "All" reads dim_Products.
+      const distinct = async (prodCol, authCol) => {
         const rows = clientScope
           ? await queryRows(
-              `SELECT DISTINCT p.${col} AS v
-               FROM dim_AUTHS_T2 a INNER JOIN dim_Products p ON a.ItemUPC = p.item_upc AND a.TEAM_KEY = p.team_key
+              `SELECT DISTINCT a.${authCol} AS v
+               FROM dim_AUTHS_T2 a
                WHERE a.PrincipalID = @ClientID AND a.TeamID = @TeamID AND a.ItemStatus NOT IN ('X','D')
-                 AND p.${col} IS NOT NULL AND p.${col} <> ''
-               ORDER BY p.${col}`,
+                 AND a.${authCol} IS NOT NULL AND a.${authCol} <> ''
+               ORDER BY a.${authCol}`,
               [{ name: 'ClientID', type: TYPES.VarChar, value: clientId }, { name: 'TeamID', type: TYPES.VarChar, value: teamId }],
             )
           : await queryRows(
-              `SELECT DISTINCT ${col} AS v FROM dim_Products WHERE ${col} IS NOT NULL AND ${col} <> '' ORDER BY ${col}`,
+              `SELECT DISTINCT ${prodCol} AS v FROM dim_Products WHERE ${prodCol} IS NOT NULL AND ${prodCol} <> '' ORDER BY ${prodCol}`,
               [],
             )
         return rows.map((r) => r.v)
       }
       const [brands, families, categories] = await Promise.all([
-        distinct('brand_description'), distinct('family_description'), distinct('category_name'),
+        distinct('brand_description', 'BrandDescription'),
+        distinct('family_description', 'FamilyDescription'),
+        distinct('category_name', 'CategoryDescription'),
       ])
       return res.status(200).json({ brands, families, categories })
     }
