@@ -240,25 +240,34 @@ const NEW_ITEM_DROPDOWNS = { brand: 'brands', family: 'families', category: 'cat
 export function NewItemsStep({ state, dispatch, config, refData }) {
   const fields = config?.itemFields || NEW_ITEM_FIELDS
   const [attrs, setAttrs] = useState({ brands: [], families: [], categories: [] })
+  const [scope, setScope] = useState('client') // 'client' | 'all'
 
   useEffect(() => {
     let alive = true
     if (apiEnabled()) {
-      reference.productAttributes()
-        .then((a) => { if (alive) setAttrs({ brands: a.brands || [], families: a.families || [], categories: a.categories || [] }) })
-        .catch(() => {})
+      const req = scope === 'client' && state.teamId && state.clientId
+        ? reference.productAttributes(state.teamId, state.clientId)
+        : reference.productAttributes()
+      req.then((a) => { if (alive) setAttrs({ brands: a.brands || [], families: a.families || [], categories: a.categories || [] }) }).catch(() => {})
     } else {
       const uniq = (key) => [...new Set((refData?.items || []).map((it) => it[key]).filter(Boolean))].sort()
       setAttrs({ brands: uniq('brand'), families: uniq('family'), categories: uniq('category') })
     }
     return () => { alive = false }
-  }, [refData])
+  }, [scope, state.teamId, state.clientId, refData])
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
         <label className={labelCls}>New Items</label>
         <button type="button" onClick={() => dispatch({ type: 'ADD_NEW_ITEM', item: {} })} className="px-3 py-1.5 rounded-lg bg-green-3 hover:bg-green-4 text-white text-xs font-bold">+ Add item</button>
+      </div>
+      {/* Scope for the brand/family/category dropdown values */}
+      <div className="flex items-center gap-1 mb-2 text-xs">
+        <span className="text-green-4/50 mr-1">Values from:</span>
+        {[{ id: 'client', label: 'This client' }, { id: 'all', label: 'All products' }].map((s) => (
+          <button key={s.id} type="button" onClick={() => setScope(s.id)} className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${scope === s.id ? 'bg-green-2 text-white' : 'bg-green-4/5 text-green-4/60 hover:text-green-4'}`}>{s.label}</button>
+        ))}
       </div>
       {state.newItems.length === 0 && <p className="text-sm text-green-4/40">No items yet. Click “Add item” to enter a new UPC.</p>}
       <p className="text-xs text-green-4/50 mb-2">Enter UPCs as 12 digits (numbers only). Brand, family, and category are chosen from existing product values.</p>

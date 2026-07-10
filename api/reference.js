@@ -133,14 +133,25 @@ export default async function handler(req, res) {
       })))
     }
 
-    // Distinct brand / family / category values from dim_Products, for the
-    // new-item build dropdowns (keeps entered values consistent with the master).
+    // Distinct brand / family / category values for the new-item build dropdowns
+    // (keeps entered values consistent with the master). Scoped to the selected
+    // client's items when teamId + clientId are supplied, else the whole table.
     if (resource === 'productAttributes') {
+      const clientScope = !!(teamId && clientId)
       const distinct = async (col) => {
-        const rows = await queryRows(
-          `SELECT DISTINCT ${col} AS v FROM dim_Products WHERE ${col} IS NOT NULL AND ${col} <> '' ORDER BY ${col}`,
-          [],
-        )
+        const rows = clientScope
+          ? await queryRows(
+              `SELECT DISTINCT p.${col} AS v
+               FROM dim_AUTHS_T2 a INNER JOIN dim_Products p ON a.ItemUPC = p.item_upc AND a.TEAM_KEY = p.team_key
+               WHERE a.PrincipalID = @ClientID AND a.TeamID = @TeamID AND a.ItemStatus NOT IN ('X','D')
+                 AND p.${col} IS NOT NULL AND p.${col} <> ''
+               ORDER BY p.${col}`,
+              [{ name: 'ClientID', type: TYPES.VarChar, value: clientId }, { name: 'TeamID', type: TYPES.VarChar, value: teamId }],
+            )
+          : await queryRows(
+              `SELECT DISTINCT ${col} AS v FROM dim_Products WHERE ${col} IS NOT NULL AND ${col} <> '' ORDER BY ${col}`,
+              [],
+            )
         return rows.map((r) => r.v)
       }
       const [brands, families, categories] = await Promise.all([
