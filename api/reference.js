@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       const rows = await queryRows(
         `SELECT DISTINCT ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName, StoreArtsChainId
          FROM SL_Combined
-         WHERE Team = @Team AND Period = @Period
+         WHERE Team = @Team AND Period = @Period AND StorePriority = 1
          ORDER BY ArtsMasterChainName, ArtsSubMasterChainName, ArtsChainName`,
         [
           { name: 'Team', type: TYPES.VarChar, value: slTeam },
