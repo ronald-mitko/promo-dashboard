@@ -116,22 +116,20 @@ export default async function handler(req, res) {
     }
 
     // Existing-item search over the products dimension (authorize-existing flow).
-    // NOTE: adjust the dim_Products column names below to your schema. Confirmed
-    // columns from the items join: item_upc, item_size, item_pack, team_key.
-    // Placeholders to verify: item_description, item_brand, item_category.
+    // Columns confirmed against dim_Products.
     if (resource === 'products') {
       const search = String(req.query.search || '').trim()
       if (search.length < 2) return res.status(200).json([])
       const rows = await queryRows(
-        `SELECT DISTINCT TOP 50 item_upc, item_description, item_brand, item_category, item_size, item_pack
+        `SELECT DISTINCT TOP 50 item_upc, item_description, brand_description, category_name, family_description, item_size, item_pack
          FROM dim_Products
          WHERE item_upc LIKE @Search OR item_description LIKE @Search
          ORDER BY item_description`,
         [{ name: 'Search', type: TYPES.VarChar, value: `%${search}%` }],
       )
       return res.status(200).json(rows.map((r) => ({
-        itemUpc: r.item_upc, description: r.item_description, brand: r.item_brand,
-        category: r.item_category, size: r.item_size, pack: r.item_pack,
+        itemUpc: r.item_upc, description: r.item_description, brand: r.brand_description,
+        category: r.category_name, family: r.family_description, size: r.item_size, pack: r.item_pack,
       })))
     }
 
