@@ -241,6 +241,14 @@ export function NewItemsStep({ state, dispatch, config, refData }) {
   const fields = config?.itemFields || NEW_ITEM_FIELDS
   const [attrs, setAttrs] = useState({ brands: [], families: [], categories: [] })
   const [scope, setScope] = useState('client') // 'client' | 'all'
+  const [pasteText, setPasteText] = useState('')
+
+  // Paste several UPCs (one per line) → one item row each (details filled after).
+  const addPasted = () => {
+    const upcs = pasteText.split(/[\n,;\t ]+/).map((s) => s.replace(/\D/g, '').slice(0, 12)).filter(Boolean)
+    upcs.forEach((upc) => dispatch({ type: 'ADD_NEW_ITEM', item: { upc } }))
+    setPasteText('')
+  }
 
   useEffect(() => {
     let alive = true
@@ -269,8 +277,13 @@ export function NewItemsStep({ state, dispatch, config, refData }) {
           <button key={s.id} type="button" onClick={() => setScope(s.id)} className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${scope === s.id ? 'bg-green-2 text-white' : 'bg-green-4/5 text-green-4/60 hover:text-green-4'}`}>{s.label}</button>
         ))}
       </div>
-      {state.newItems.length === 0 && <p className="text-sm text-green-4/40">No items yet. Click “Add item” to enter a new UPC.</p>}
+      {state.newItems.length === 0 && <p className="text-sm text-green-4/40">No items yet. Click “Add item”, or paste several UPCs below to add many at once.</p>}
       <p className="text-xs text-green-4/50 mb-2">Enter UPCs as 12 digits (numbers only). Brand, family, and category are chosen from existing product values.</p>
+      {/* Quick add: paste multiple UPCs → a row each */}
+      <div className="flex items-start gap-2 mb-3">
+        <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={2} placeholder="Paste UPCs (one per line) to add several at once…" className={`${inputCls} flex-1 resize-none`} />
+        <button type="button" onClick={addPasted} disabled={!pasteText.trim()} className="px-3 rounded-lg bg-green-3 hover:bg-green-4 disabled:opacity-50 text-white text-xs font-bold whitespace-nowrap self-stretch">Add rows</button>
+      </div>
       <div className="space-y-3">
         {state.newItems.map((item, idx) => (
           <div key={idx} className="border border-green-4/10 rounded-xl p-3">
