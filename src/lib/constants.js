@@ -44,6 +44,9 @@ export const WORKFLAG_FREQUENCIES = [
   { code: 'every_call', label: 'Work every' },
 ]
 
+// Required confirmation shown at the front of every HQ submission flow.
+export const CONTRACT_CONFIRM_TEXT = 'Please Confirm this Client is Contracted for Retail Work in the Submitted Accounts.'
+
 // Submission lifecycle (promotions + section requests share this spine).
 export const SUBMISSION_STATUS = {
   DRAFT: 'draft',

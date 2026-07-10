@@ -3,7 +3,7 @@ import { FIELD, LABEL } from '../lib/ui'
 import * as XLSX from "xlsx"
 import { useReferenceData } from "../hooks/useReferenceData"
 import { ChainPicker } from "./wizard/steps"
-import { REQUEST_TYPES } from "../lib/constants"
+import { REQUEST_TYPES, CONTRACT_CONFIRM_TEXT } from "../lib/constants"
 import { formatDate, formatCurrency, formatDateRange, computeStatus } from "../lib/helpers"
 import { CalendarIcon, CloseIcon, getRetailerIcon } from "./icons"
 import StatusBadge, { PROMO_TYPE_STYLES } from "./StatusBadge"
@@ -12,6 +12,9 @@ import StatusBadge, { PROMO_TYPE_STYLES } from "./StatusBadge"
 // upload, and AI parse. Extracted from App.jsx unchanged.
 export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultiplePromos, onUpdatePromo, editPromo, promotions, brandColors, retailerChainData, seedRefData, onAddRequest, initialPriorityType }) {
   const [activeModalTab, setActiveModalTab] = useState('manual')
+  // Required contract confirmation gate at the front (skipped when editing a draft).
+  const [confirmed, setConfirmed] = useState(false)
+  const [gateChecked, setGateChecked] = useState(false)
   // Manual form state
   const [formData, setFormData] = useState({
     teamId: '', teamName: '',
@@ -63,10 +66,9 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
   const [aiError, setAiError] = useState('')
   const [aiParsedPromo, setAiParsedPromo] = useState(null)
 
+  // CSV upload and AI parse removed for now — manual entry only.
   const modalTabs = [
     { id: 'manual', label: 'Manual Form' },
-    { id: 'csv', label: 'CSV Upload' },
-    { id: 'ai', label: 'AI Parse' },
   ]
 
   // Lookup chain from retailer using reference data
@@ -90,6 +92,9 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
   // On open: prefill from the edited promo, or apply the chosen priority type for a new entry
   useEffect(() => {
     if (!isOpen) return
+    // Editing a draft skips the gate (already confirmed at creation); new entries require it.
+    setConfirmed(!!editPromo)
+    setGateChecked(false)
     if (editPromo) {
       setActiveModalTab('manual')
       setFormData({
@@ -377,8 +382,8 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
               <CloseIcon className="w-5 h-5"/>
             </button>
           </div>
-          {/* Tabs (hidden when editing an existing entry) */}
-          <div className={`items-center gap-1 mt-3 bg-white/10 rounded-xl p-1 ${editPromo ? 'hidden' : 'flex'}`}>
+          {/* Tabs (hidden when editing, before confirmation, or with a single tab) */}
+          <div className={`items-center gap-1 mt-3 bg-white/10 rounded-xl p-1 ${editPromo || !confirmed || modalTabs.length <= 1 ? 'hidden' : 'flex'}`}>
             {modalTabs.map((tab) => (
               <button
                 key={tab.id}
@@ -402,8 +407,24 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
+          {/* Required contract confirmation gate (front of the process) */}
+          {!confirmed && (
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 p-4 bg-cream border border-green-4/15 rounded-xl cursor-pointer hover:border-green-2 transition-colors">
+                <input type="checkbox" checked={gateChecked} onChange={(e) => setGateChecked(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#00C48D]" />
+                <span className="text-sm font-medium text-green-4">{CONTRACT_CONFIRM_TEXT}</span>
+              </label>
+              <button
+                disabled={!gateChecked}
+                onClick={() => setConfirmed(true)}
+                className={`w-full py-3 rounded-xl text-white font-bold text-sm transition-colors ${gateChecked ? 'bg-green-2 hover:bg-green-3' : 'bg-green-2/40 cursor-not-allowed'}`}
+              >
+                Continue
+              </button>
+            </div>
+          )}
           {/* Manual Form Tab */}
-          {activeModalTab === 'manual' && (
+          {confirmed && activeModalTab === 'manual' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">

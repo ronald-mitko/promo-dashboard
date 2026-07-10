@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DATE_PRESETS, NEW_ITEM_FIELDS } from '../../lib/constants'
+import { DATE_PRESETS, NEW_ITEM_FIELDS, CONTRACT_CONFIRM_TEXT } from '../../lib/constants'
 import { formatDateRange, toLocalYMD } from '../../lib/helpers'
 import { apiEnabled } from '../../lib/api'
 import { FIELD, LABEL } from '../../lib/ui'
@@ -23,6 +23,20 @@ function CheckRow({ checked, onChange, title, subtitle }) {
         {subtitle && <span className="block text-xs text-green-4/50">{subtitle}</span>}
       </span>
     </label>
+  )
+}
+
+// Step 0: Required contract confirmation ────────────────────────────────────
+export function ConfirmStep({ state, dispatch }) {
+  return (
+    <div>
+      <label className={labelCls}>Confirmation</label>
+      <label className="flex items-start gap-3 mt-3 p-4 border border-green-4/15 rounded-xl cursor-pointer hover:border-green-2 transition-colors">
+        <input type="checkbox" checked={!!state.contractConfirmed} onChange={(e) => dispatch({ type: 'SET', field: 'contractConfirmed', value: e.target.checked })} className="mt-0.5 w-4 h-4 accent-[#00C48D]" />
+        <span className="text-sm font-medium text-green-4">{CONTRACT_CONFIRM_TEXT}</span>
+      </label>
+      <p className="text-xs text-green-4/50 mt-2">You must confirm this before continuing.</p>
+    </div>
   )
 }
 

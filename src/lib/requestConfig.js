@@ -1,9 +1,12 @@
 import { REQUEST_TYPES } from './constants'
 import { formatDateRange } from './helpers'
 import {
-  TeamStep, ClientStep, ChainsStep, StoresStep, ItemsStep,
+  ConfirmStep, TeamStep, ClientStep, ChainsStep, StoresStep, ItemsStep,
   NewItemsStep, WorkflagDetailsStep, AuthorizeDetailsStep, ReviewStep,
 } from '../components/wizard/steps'
+
+// Required contract confirmation shown first in every wizard flow.
+const confirmStep = { id: 'confirm', label: 'Confirm', Component: ConfirmStep, validate: (s) => s.contractConfirmed === true }
 
 // Master chain of the first selected store — used for RCSM routing.
 function storeMaster(state, refData) {
@@ -25,6 +28,7 @@ export const REQUEST_CONFIG = {
     type: REQUEST_TYPES.WORKFLAG,
     title: 'Home Location Check',
     steps: [
+      confirmStep,
       { id: 'team', label: 'Team', Component: TeamStep, validate: (s) => !!s.teamId },
       { id: 'client', label: 'Client', Component: ClientStep, validate: (s) => !!s.clientId },
       { id: 'stores', label: 'Chains', Component: StoresStep, validate: (s) => s.stores.length > 0 },
@@ -62,6 +66,7 @@ export const REQUEST_CONFIG = {
     type: REQUEST_TYPES.AUTHORIZE,
     title: 'Authorize Items',
     steps: [
+      confirmStep,
       { id: 'team', label: 'Team', Component: TeamStep, validate: (s) => !!s.teamId },
       { id: 'client', label: 'Client', Component: ClientStep, validate: (s) => !!s.clientId },
       { id: 'chains', label: 'Chains', Component: ChainsStep, validate: (s) => s.chains.length > 0 },

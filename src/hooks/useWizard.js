@@ -2,6 +2,7 @@ import { useReducer, useCallback } from 'react'
 
 export const WIZARD_DEFAULTS = {
   stepIndex: 0,
+  contractConfirmed: false,   // required gate at the front of the flow
   teamId: '', teamName: '',
   clientId: '', clientName: '',
   chains: [],      // chain names (authorize)
