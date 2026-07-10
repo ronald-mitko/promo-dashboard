@@ -34,6 +34,7 @@ function ReviewPanel({ raw, kind }) {
         <Row label="Price" value={raw.retail_price != null ? `$${raw.retail_price} → $${raw.promo_price}` : '—'} />
         <Row label="Display" value={raw.display} />
         <Row label="Photo requested" value={raw.photo_requested === 'yes' ? 'Yes' : 'No'} />
+        <Row label="Attachment" value={raw.attachment ? <a href={raw.attachment.url} target="_blank" rel="noreferrer" className="text-green-3 underline">{raw.attachment.name}</a> : '—'} />
       </div>
     )
   }

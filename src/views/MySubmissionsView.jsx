@@ -23,6 +23,7 @@ function promoDetail(p) {
     ['Expected lift', p.expected_lift != null ? `${p.expected_lift}%` : '—'],
     ['Display', p.display],
     ['Photo requested', p.photo_requested === 'yes' ? 'Yes' : 'No'],
+    ['Attachment', p.attachment ? <a href={p.attachment.url} target="_blank" rel="noreferrer" className="text-green-3 underline">{p.attachment.name}</a> : '—'],
     ['Submitted by', p.submitted_by || '—'],
     ['Submitted at', p.submitted_at ? fmtTs(p.submitted_at) : '—'],
   ]

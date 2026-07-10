@@ -4,6 +4,7 @@ import * as XLSX from "xlsx"
 import { useReferenceData } from "../hooks/useReferenceData"
 import { ChainPicker } from "./wizard/steps"
 import { REQUEST_TYPES, CONTRACT_CONFIRM_TEXT } from "../lib/constants"
+import { uploadFile } from "../lib/upload"
 import { formatDate, formatCurrency, formatDateRange, computeStatus } from "../lib/helpers"
 import { CalendarIcon, CloseIcon, getRetailerIcon } from "./icons"
 import StatusBadge, { PROMO_TYPE_STYLES } from "./StatusBadge"
@@ -15,6 +16,9 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
   // Required contract confirmation gate at the front (skipped when editing a draft).
   const [confirmed, setConfirmed] = useState(false)
   const [gateChecked, setGateChecked] = useState(false)
+  // File attachment (Vercel Blob)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   // Manual form state
   const [formData, setFormData] = useState({
     teamId: '', teamName: '',
@@ -34,6 +38,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
     expected_lift: '',
     display: '',
     photo_requested: 'no',
+    attachment: null,
     checklist_text: '',
   })
   const [formError, setFormError] = useState('')
@@ -117,6 +122,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
         expected_lift: editPromo.expected_lift != null ? String(editPromo.expected_lift) : '',
         display: editPromo.display && editPromo.display !== 'None specified' ? editPromo.display : '',
         photo_requested: editPromo.photo_requested || 'no',
+        attachment: editPromo.attachment || null,
         checklist_text: (editPromo.checklist || []).join('\n'),
       })
     } else {
@@ -127,6 +133,21 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
   const handleFormChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     setFormError('')
+  }
+
+  const handleFileAttach = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    setUploadError('')
+    setUploading(true)
+    try {
+      const meta = await uploadFile(file)
+      handleFormChange('attachment', meta)
+    } catch (err) {
+      setUploadError((err && err.message) || 'Upload failed. Is Blob storage configured?')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleManualSubmit = () => {
@@ -166,6 +187,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
       promo_price: promoPrice,
       display: formData.display || 'None specified',
       photo_requested: formData.priority_type === 'shelf' ? 'no' : (formData.photo_requested || 'no'),
+      attachment: formData.attachment || null,
       status: computeStatus(formData.start_date, formData.end_date),
       checklist: formData.checklist_text ? formData.checklist_text.split('\n').filter(l => l.trim()) : ['Verify price tag updated', 'Check stock levels', 'Photo verification required'],
     }
@@ -175,7 +197,7 @@ export default function AddPromoModal({ isOpen, onClose, onAddPromo, onAddMultip
       onAddPromo({ promo_id: generatePromoId(fields.retailer, formData.promo_type), ...fields })
     }
     // Reset form
-    setFormData({ teamId: '', teamName: '', clientId: '', clientName: '', chains: [], retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', photo_requested: 'no', checklist_text: '' })
+    setFormData({ teamId: '', teamName: '', clientId: '', clientName: '', chains: [], retailer: '', product: '', brand: '', category: '', priority_type: formData.priority_type || 'promo_display', promo_type: 'TPR', start_date: '', end_date: '', mechanic: '', retail_price: '', promo_price: '', expected_lift: '', display: '', photo_requested: 'no', attachment: null, checklist_text: '' })
     setFormError('')
     onClose()
   }
@@ -520,6 +542,19 @@ Infer any missing fields with reasonable defaults for CPG retail. Today's date i
                   </select>
                 </div>
               )}
+              <div className="flex flex-col gap-1">
+                <label className={LABEL}>Attachment <span className="normal-case font-normal text-green-4/40">— optional (photo, planogram, PDF, spreadsheet)</span></label>
+                {formData.attachment ? (
+                  <div className="flex items-center gap-2 bg-cream rounded-lg px-3 py-2">
+                    <a href={formData.attachment.url} target="_blank" rel="noreferrer" className="flex-1 text-sm text-green-3 font-semibold underline truncate">{formData.attachment.name}</a>
+                    <button type="button" onClick={() => handleFormChange('attachment', null)} className="text-red-400 hover:text-red-600 text-xs font-bold">Remove</button>
+                  </div>
+                ) : (
+                  <input type="file" onChange={handleFileAttach} disabled={uploading} className="text-sm text-green-4/70 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-green-2 file:text-white file:font-bold file:text-xs hover:file:bg-green-3 file:cursor-pointer" />
+                )}
+                {uploading && <div className="text-xs text-green-4/50 mt-0.5">Uploading…</div>}
+                {uploadError && <div className="text-xs text-red-600 mt-0.5">{uploadError}</div>}
+              </div>
               <div className="flex flex-col gap-1">
                 <label className={LABEL}>Compliance Checklist (one item per line)</label>
                 <textarea value={formData.checklist_text} onChange={(e) => handleFormChange('checklist_text', e.target.value)} placeholder={"Verify price tag updated\nCheck stock levels\nPhoto verification required"} rows={3} className={`${FIELD} placeholder:text-green-4/30 resize-none`}/>
