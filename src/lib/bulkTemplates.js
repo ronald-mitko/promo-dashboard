@@ -11,15 +11,18 @@ export const BULK_SPECS = {
     label: 'Priorities',
     filename: 'priorities_template.xlsx',
     grouped: false, // one row per priority
-    header: ['Client', 'Retailer', 'Chains', 'Product', 'Brand', 'Category', 'PromoType', 'StartDate', 'EndDate', 'Mechanic', 'RetailPrice', 'PromoPrice', 'ExpectedLift', 'Display', 'PhotoRequested'],
+    needsChains: true,
+    chainColumn: 'Chains',
+    chainSource: 'clientChains', // the client's chains (same as manual promo entry)
+    header: ['Client', 'Chains', 'Product', 'Brand', 'Category', 'PromoType', 'StartDate', 'EndDate', 'Mechanic', 'RetailPrice', 'PromoPrice', 'ExpectedLift', 'Display', 'PhotoRequested'],
     example: [
-      ['Mars', 'Walmart', 'Walmart Supercenter', "M&M's Party Size 38oz", 'Mars', 'Candy', 'TPR', '2026-08-01', '2026-08-31', '$2 off Party Size', 10.99, 8.99, 25, 'Candy aisle endcap', 'no'],
+      ['Mars', 'Walmart Supercenter', "M&M's Party Size 38oz", 'Mars', 'Candy', 'TPR', '2026-08-01', '2026-08-31', '$2 off Party Size', 10.99, 8.99, 25, 'Candy aisle endcap', 'no'],
     ],
     notes: [
       'One row = one priority (it will be created as a draft to review and submit).',
+      'Pick Chains from the dropdown (the selected client’s chains). Client is pre-filled and drives routing to the RCSM.',
       'PromoType must be one of: TPR, Feature, Display, Feature and Display.',
-      'Dates use YYYY-MM-DD. Chains: separate multiple with a semicolon (;).',
-      'PhotoRequested: yes or no. Client is required (drives routing to the RCSM).',
+      'Dates use YYYY-MM-DD. For multiple chains in one row, separate with a semicolon (;). PhotoRequested: yes or no.',
     ],
   },
 

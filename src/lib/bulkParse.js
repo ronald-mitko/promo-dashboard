@@ -55,9 +55,9 @@ function parsePriorities(data) {
     const chains = splitMulti(r.Chains)
     records.push({
       clientName,
-      retailer: str(r.Retailer),
+      retailer: chains[0] || '',
       chains,
-      chain: chains[0] || str(r.Retailer),
+      chain: chains[0] || '',
       product,
       brand: str(r.Brand),
       category: str(r.Category),
