@@ -14,6 +14,8 @@ export const BULK_SPECS = {
     needsChains: true,
     chainColumn: 'Chains',
     chainSource: 'clientChains', // the client's chains (same as manual promo entry)
+    dropdowns: { PromoType: ['TPR', 'Feature', 'Display', 'Feature and Display'], PhotoRequested: ['yes', 'no'] },
+    dateColumns: ['StartDate', 'EndDate'],
     header: ['Client', 'Chains', 'Product', 'Brand', 'Category', 'PromoType', 'StartDate', 'EndDate', 'Mechanic', 'RetailPrice', 'PromoPrice', 'ExpectedLift', 'Display', 'PhotoRequested'],
     example: [
       ['Mars', 'Walmart Supercenter', "M&M's Party Size 38oz", 'Mars', 'Candy', 'TPR', '2026-08-01', '2026-08-31', '$2 off Party Size', 10.99, 8.99, 25, 'Candy aisle endcap', 'no'],
@@ -33,6 +35,8 @@ export const BULK_SPECS = {
     needsChains: true,
     chainColumn: 'Chains',
     chainSource: 'authChains', // total routing (SL_Combined, StorePriority = 1)
+    dropdowns: { AuthType: ['new', 'reauthorize', 'delete'] },
+    dateColumns: ['EffectiveDate'],
     header: ['Client', 'Team', 'Chains', 'AuthType', 'EffectiveDate', 'UPC', 'Description', 'Brand', 'Category', 'Family', 'Size', 'Pack'],
     example: [
       ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', 'new', '2026-08-01', '012345678905', 'New Item A', 'Mars', 'Candy', 'Chocolate', '3.5oz', '12'],
@@ -52,6 +56,8 @@ export const BULK_SPECS = {
     needsChains: true,
     chainColumn: 'Accounts',
     chainSource: 'authChains', // total routing (SL_Combined, StorePriority = 1)
+    dropdowns: { AuthType: ['new', 'reauthorize', 'delete'] },
+    dateColumns: ['EffectiveDate'],
     header: ['Client', 'Team', 'Accounts', 'AuthType', 'EffectiveDate', 'UPC', 'Description'],
     example: [
       ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', 'new', '2026-08-01', '040000000017', "M&M's Peanut Party Size 38oz"],
@@ -71,6 +77,7 @@ export const BULK_SPECS = {
     needsChains: true, // template download requires Team + Client (chain dropdown)
     chainColumn: 'Chains',
     chainSource: 'clientChains', // the client's chains (each splits into stores on upload)
+    dateColumns: ['StartDate', 'EndDate'],
     example: [
       ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', '2026-08-01', '2026-08-28', '040000000017'],
     ],
@@ -127,18 +134,38 @@ export async function downloadChainTemplate(type, { teamName, clientName, chains
   chains.forEach((c) => cs.addRow([c]))
   const lastRow = Math.max(chains.length + 1, 2)
 
-  // In-cell dropdown on the chain/account column for a generous row range.
-  const col = colLetter(chainIdx)
-  for (let r = 2; r <= 1000; r++) {
-    ws.getCell(`${col}${r}`).dataValidation = {
-      type: 'list',
-      allowBlank: false,
-      formulae: [`=Chains!$A$2:$A$${lastRow}`],
-      showErrorMessage: true,
-      errorTitle: `Invalid ${spec.chainColumn.toLowerCase()}`,
-      error: 'Pick a value from the dropdown list.',
+  const R = 1000 // validated row range
+  // In-cell dropdown on the chain/account column, from the Chains sheet.
+  ws.dataValidations.add(`${colLetter(chainIdx)}2:${colLetter(chainIdx)}${R}`, {
+    type: 'list',
+    allowBlank: false,
+    formulae: [`=Chains!$A$2:$A$${lastRow}`],
+    showErrorMessage: true,
+    errorTitle: `Invalid ${spec.chainColumn.toLowerCase()}`,
+    error: 'Pick a value from the dropdown list.',
+  })
+
+  // Per-column list dropdowns (PromoType, PhotoRequested, AuthType, …) and
+  // locked date format + validation (StartDate/EndDate/EffectiveDate).
+  const dropdowns = spec.dropdowns || {}
+  const dateCols = spec.dateColumns || []
+  header.forEach((h, idx) => {
+    const letter = colLetter(idx)
+    if (dropdowns[h]) {
+      ws.dataValidations.add(`${letter}2:${letter}${R}`, {
+        type: 'list', allowBlank: true, formulae: [`"${dropdowns[h].join(',')}"`],
+        showErrorMessage: true, errorTitle: `Invalid ${h}`, error: 'Pick a value from the dropdown list.',
+      })
     }
-  }
+    if (dateCols.includes(h)) {
+      ws.getColumn(idx + 1).numFmt = 'yyyy-mm-dd'
+      ws.dataValidations.add(`${letter}2:${letter}${R}`, {
+        type: 'date', operator: 'between', allowBlank: true,
+        formulae: [new Date(2020, 0, 1), new Date(2100, 0, 1)],
+        showErrorMessage: true, errorTitle: 'Invalid date', error: 'Enter a date in YYYY-MM-DD format.',
+      })
+    }
+  })
 
   const ins = wb.addWorksheet('Instructions')
   ;['Instructions', '', ...spec.notes].forEach((t) => ins.addRow([t]))

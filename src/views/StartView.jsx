@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { PRIORITY_TYPES } from '../lib/constants'
+import BulkUpload from '../components/BulkUpload'
 
 function Icon({ path }) {
   return (
@@ -8,7 +9,7 @@ function Icon({ path }) {
 }
 
 // HQ launcher: pick what you want to do, then drop into the matching flow.
-export default function StartView({ onAuthorize, onHomeLocationCheck, onViewPriorities, onAddPriority }) {
+export default function StartView({ onAuthorize, onHomeLocationCheck, onViewPriorities, onAddPriority, onBulkImportPromo, refData }) {
   const [showTypes, setShowTypes] = useState(false)
 
   const Card = ({ title, desc, onClick, accent, icon }) => (
@@ -60,6 +61,12 @@ export default function StartView({ onAuthorize, onHomeLocationCheck, onViewPrio
               </button>
             ))}
           </div>
+          {onBulkImportPromo && (
+            <div className="mt-3 pt-3 border-t border-green-4/8 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-green-4/50">Adding many promotions / displays at once?</span>
+              <BulkUpload type="priority" onImport={onBulkImportPromo} refData={refData} />
+            </div>
+          )}
         </div>
       )}
     </div>
