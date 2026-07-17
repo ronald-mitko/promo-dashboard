@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { BULK_SPECS, downloadTemplate, downloadWorkflagTemplate } from '../lib/bulkTemplates'
+import { BULK_SPECS, downloadTemplate, downloadChainTemplate } from '../lib/bulkTemplates'
 import { parseBulk } from '../lib/bulkParse'
 import { expandWorkflagStores } from '../lib/bulkExpand'
 import { apiEnabled, reference } from '../lib/api'
@@ -54,12 +54,14 @@ export default function BulkUpload({ type, onImport, refData }) {
     try {
       let chains = []
       if (apiEnabled()) {
-        const rows = await reference.chains(teamId, clientId)
+        const rows = spec.chainSource === 'authChains'
+          ? await reference.authChains(teamId)
+          : await reference.chains(teamId, clientId)
         chains = [...new Set((rows || []).map((c) => c.chain).filter(Boolean))].sort()
       } else {
         chains = [...new Set((refData?.stores || []).map((s) => s.artsChainName).filter(Boolean))].sort()
       }
-      await downloadWorkflagTemplate({ teamName, clientName, chains })
+      await downloadChainTemplate(type, { teamName, clientName, chains })
     } catch (e) {
       setErr((e && e.message) || 'Could not build the template.')
     } finally {

@@ -27,6 +27,9 @@ export const BULK_SPECS = {
     label: 'Authorize new items',
     filename: 'authorize_new_items_template.xlsx',
     grouped: true, // rows sharing header fields become one request
+    needsChains: true,
+    chainColumn: 'Chains',
+    chainSource: 'authChains', // total routing (SL_Combined, StorePriority = 1)
     header: ['Client', 'Team', 'Chains', 'AuthType', 'EffectiveDate', 'UPC', 'Description', 'Brand', 'Category', 'Family', 'Size', 'Pack'],
     example: [
       ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', 'new', '2026-08-01', '012345678905', 'New Item A', 'Mars', 'Candy', 'Chocolate', '3.5oz', '12'],
@@ -34,8 +37,8 @@ export const BULK_SPECS = {
     ],
     notes: [
       'Each row = one new item. Rows sharing the same Client + Team + Chains + AuthType + EffectiveDate are bundled into ONE authorize request (draft).',
-      'Repeat the Client/Team/Chains/AuthType/EffectiveDate values on every row.',
-      'UPC = 12 digits. Chains: separate multiple with a semicolon (;). AuthType: new, reauthorize, or delete.',
+      'Pick Chains from the dropdown (sourced from the site). Repeat the Client/Team/Chains/AuthType/EffectiveDate values on every row.',
+      'UPC = 12 digits. For multiple chains in one row, separate with a semicolon (;). AuthType: new, reauthorize, or delete.',
     ],
   },
 
@@ -43,13 +46,16 @@ export const BULK_SPECS = {
     label: 'Authorize existing items',
     filename: 'authorize_existing_items_template.xlsx',
     grouped: true,
+    needsChains: true,
+    chainColumn: 'Accounts',
+    chainSource: 'authChains', // total routing (SL_Combined, StorePriority = 1)
     header: ['Client', 'Team', 'Accounts', 'AuthType', 'EffectiveDate', 'UPC', 'Description'],
     example: [
       ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', 'new', '2026-08-01', '040000000017', "M&M's Peanut Party Size 38oz"],
     ],
     notes: [
       'Each row = one existing item to authorize into the listed account(s). Rows sharing Client + Team + Accounts + AuthType + EffectiveDate become ONE request (draft).',
-      'Accounts (total routing chains): separate multiple with a semicolon (;). UPC = 12 digits.',
+      'Pick Accounts from the dropdown (total-routing chains from the site). For multiple in one row, separate with a semicolon (;). UPC = 12 digits.',
     ],
   },
 
@@ -60,6 +66,8 @@ export const BULK_SPECS = {
     // Chains (not stores) — HQ picks chains; upload splits each chain into stores.
     header: ['Client', 'Team', 'Chains', 'StartDate', 'EndDate', 'UPC'],
     needsChains: true, // template download requires Team + Client (chain dropdown)
+    chainColumn: 'Chains',
+    chainSource: 'clientChains', // the client's chains (each splits into stores on upload)
     example: [
       ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', '2026-08-01', '2026-08-28', '040000000017'],
     ],
@@ -83,17 +91,30 @@ function triggerDownload(buffer, filename) {
   URL.revokeObjectURL(url)
 }
 
-// Home Location Check template with a real in-cell Chains dropdown (ExcelJS),
+const colLetter = (i) => String.fromCharCode(65 + i) // 0→A, 1→B, …
+
+// Template with a real in-cell dropdown on the chain/account column (ExcelJS),
 // sourced from the site's chains for the chosen Team + Client (both pre-filled).
-export async function downloadWorkflagTemplate({ teamName, clientName, chains }) {
+// Works for any spec flagged needsChains (workflag, authorize, authorize_existing).
+export async function downloadChainTemplate(type, { teamName, clientName, chains }) {
+  const spec = BULK_SPECS[type]
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Template')
-  const header = ['Client', 'Team', 'Chains', 'StartDate', 'EndDate', 'UPC']
+  const header = spec.header
+  const chainIdx = header.indexOf(spec.chainColumn)
   ws.addRow(header)
-  const c0 = chains[0] || ''
-  ws.addRow([clientName, teamName, c0, '2026-08-01', '2026-08-28', '040000000017'])
-  ws.addRow([clientName, teamName, c0, '2026-08-01', '2026-08-28', '046100358825'])
+
+  // Example rows: use the spec's examples but override Client / Team / chain column.
+  const examples = spec.example.length ? spec.example : [header.map(() => '')]
+  examples.forEach((ex) => {
+    ws.addRow(header.map((h, idx) => {
+      if (h === 'Client') return clientName
+      if (h === 'Team') return teamName
+      if (idx === chainIdx) return chains[0] || ''
+      return ex[idx] != null ? ex[idx] : ''
+    }))
+  })
   ws.columns = header.map((h) => ({ width: Math.max(16, h.length + 2) }))
   ws.getRow(1).font = { bold: true }
 
@@ -101,32 +122,26 @@ export async function downloadWorkflagTemplate({ teamName, clientName, chains })
   const cs = wb.addWorksheet('Chains')
   cs.addRow(['ValidChains'])
   chains.forEach((c) => cs.addRow([c]))
-  const lastRow = chains.length + 1
+  const lastRow = Math.max(chains.length + 1, 2)
 
-  // In-cell dropdown on the Chains column (C) for a generous row range.
+  // In-cell dropdown on the chain/account column for a generous row range.
+  const col = colLetter(chainIdx)
   for (let r = 2; r <= 1000; r++) {
-    ws.getCell(`C${r}`).dataValidation = {
+    ws.getCell(`${col}${r}`).dataValidation = {
       type: 'list',
       allowBlank: false,
-      formulae: [`=Chains!$A$2:$A$${Math.max(lastRow, 2)}`],
+      formulae: [`=Chains!$A$2:$A$${lastRow}`],
       showErrorMessage: true,
-      errorTitle: 'Invalid chain',
-      error: 'Pick a chain from the dropdown list.',
+      errorTitle: `Invalid ${spec.chainColumn.toLowerCase()}`,
+      error: 'Pick a value from the dropdown list.',
     }
   }
 
   const ins = wb.addWorksheet('Instructions')
-  const lines = [
-    'Instructions', '',
-    'One row = one item to check. Rows sharing Client + Team + Chains + StartDate + EndDate become ONE Home Location Check (draft).',
-    'Pick Chains from the dropdown in column C (sourced from the site for this client).',
-    'On upload, each chain is automatically split into its stores.',
-    'UPC = 12 digits. Dates: YYYY-MM-DD.',
-  ]
-  lines.forEach((t) => ins.addRow([t]))
+  ;['Instructions', '', ...spec.notes].forEach((t) => ins.addRow([t]))
   ins.getColumn(1).width = 110
 
-  triggerDownload(await wb.xlsx.writeBuffer(), 'home_location_check_template.xlsx')
+  triggerDownload(await wb.xlsx.writeBuffer(), spec.filename)
 }
 
 // Build and download the .xlsx template for a bulk type.
