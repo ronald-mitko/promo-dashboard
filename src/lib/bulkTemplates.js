@@ -57,16 +57,76 @@ export const BULK_SPECS = {
     label: 'Home Location Check',
     filename: 'home_location_check_template.xlsx',
     grouped: true,
-    header: ['Client', 'Team', 'Stores', 'StartDate', 'EndDate', 'UPC'],
+    // Chains (not stores) — HQ picks chains; upload splits each chain into stores.
+    header: ['Client', 'Team', 'Chains', 'StartDate', 'EndDate', 'UPC'],
+    needsChains: true, // template download requires Team + Client (chain dropdown)
     example: [
-      ['Mars', 'Syndicated Grocery', '1023;1044', '2026-08-01', '2026-08-28', '040000000017'],
-      ['Mars', 'Syndicated Grocery', '1023;1044', '2026-08-01', '2026-08-28', '046100358825'],
+      ['Mars', 'Syndicated Grocery', 'Walmart Supercenter', '2026-08-01', '2026-08-28', '040000000017'],
     ],
     notes: [
-      'Each row = one item to check. Rows sharing Client + Team + Stores + StartDate + EndDate become ONE Home Location Check (draft).',
-      'Stores: list store numbers separated by a semicolon (;), repeated on every row. UPC = 12 digits. Dates: YYYY-MM-DD.',
+      'Each row = one item to check. Rows sharing Client + Team + Chains + StartDate + EndDate become ONE Home Location Check (draft).',
+      'Pick Chains from the dropdown (sourced from the site). On upload, each chain is automatically split into its stores.',
+      'UPC = 12 digits. Dates: YYYY-MM-DD. For multiple chains in one row, separate with a semicolon (;).',
     ],
   },
+}
+
+function triggerDownload(buffer, filename) {
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+// Home Location Check template with a real in-cell Chains dropdown (ExcelJS),
+// sourced from the site's chains for the chosen Team + Client (both pre-filled).
+export async function downloadWorkflagTemplate({ teamName, clientName, chains }) {
+  const ExcelJS = (await import('exceljs')).default
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Template')
+  const header = ['Client', 'Team', 'Chains', 'StartDate', 'EndDate', 'UPC']
+  ws.addRow(header)
+  const c0 = chains[0] || ''
+  ws.addRow([clientName, teamName, c0, '2026-08-01', '2026-08-28', '040000000017'])
+  ws.addRow([clientName, teamName, c0, '2026-08-01', '2026-08-28', '046100358825'])
+  ws.columns = header.map((h) => ({ width: Math.max(16, h.length + 2) }))
+  ws.getRow(1).font = { bold: true }
+
+  // Reference sheet holding the valid chains (dropdown source).
+  const cs = wb.addWorksheet('Chains')
+  cs.addRow(['ValidChains'])
+  chains.forEach((c) => cs.addRow([c]))
+  const lastRow = chains.length + 1
+
+  // In-cell dropdown on the Chains column (C) for a generous row range.
+  for (let r = 2; r <= 1000; r++) {
+    ws.getCell(`C${r}`).dataValidation = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`=Chains!$A$2:$A$${Math.max(lastRow, 2)}`],
+      showErrorMessage: true,
+      errorTitle: 'Invalid chain',
+      error: 'Pick a chain from the dropdown list.',
+    }
+  }
+
+  const ins = wb.addWorksheet('Instructions')
+  const lines = [
+    'Instructions', '',
+    'One row = one item to check. Rows sharing Client + Team + Chains + StartDate + EndDate become ONE Home Location Check (draft).',
+    'Pick Chains from the dropdown in column C (sourced from the site for this client).',
+    'On upload, each chain is automatically split into its stores.',
+    'UPC = 12 digits. Dates: YYYY-MM-DD.',
+  ]
+  lines.forEach((t) => ins.addRow([t]))
+  ins.getColumn(1).width = 110
+
+  triggerDownload(await wb.xlsx.writeBuffer(), 'home_location_check_template.xlsx')
 }
 
 // Build and download the .xlsx template for a bulk type.

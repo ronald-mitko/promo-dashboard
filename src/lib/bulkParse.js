@@ -120,24 +120,27 @@ function parseWorkflag(data) {
     const line = i + 2
     const client = str(r.Client)
     const upc = str(r.UPC)
-    const stores = splitMulti(r.Stores)
-    if (!client || !upc || stores.length === 0) { errors.push(`Row ${line}: Client, Stores, and UPC are required`); return }
+    const chains = splitMulti(r.Chains)
+    if (!client || !upc || chains.length === 0) { errors.push(`Row ${line}: Client, Chains, and UPC are required`); return }
     const team = str(r.Team)
     const start = toYMD(r.StartDate)
     const end = toYMD(r.EndDate)
-    const key = [client, team, stores.join('|'), start, end].join('~~')
-    if (!groups.has(key)) groups.set(key, { client, team, stores, start, end, items: [] })
+    const key = [client, team, chains.join('|'), start, end].join('~~')
+    if (!groups.has(key)) groups.set(key, { client, team, chains, start, end, items: [] })
     groups.get(key).items.push(upc)
   })
+  // stores/storeCount/totalRows are filled by expandWorkflagStores() after parse
+  // (each chain → its stores, from the site's reference data).
   const records = [...groups.values()].map((g) => ({
     type: 'workflag',
     teamName: g.team,
     clientName: g.client,
-    stores: g.stores,
+    chains: g.chains,
+    stores: [],
     items: g.items,
-    storeCount: g.stores.length,
+    storeCount: 0,
     itemCount: g.items.length,
-    totalRows: g.stores.length * g.items.length,
+    totalRows: 0,
     payload: { startDate: g.start, endDate: g.end },
   }))
   return { records, errors }
