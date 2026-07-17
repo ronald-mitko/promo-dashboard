@@ -2,14 +2,12 @@ import { formatDateRange, latestRejectionReason } from '../lib/helpers'
 import { PRIORITY_TYPE_LABELS } from '../lib/constants'
 import RequestStatusBadge from '../components/RequestStatusBadge'
 import RequestButtons from '../components/RequestButtons'
-import BulkUpload from '../components/BulkUpload'
 
 // Simple list of entered priorities with basic details + a per-row reporting request.
-export default function PrioritiesListView({ promotions, role, onSubmitPromo, onEditPromo, onAddRequest, onAddPriority, onBulkImport, refData }) {
+export default function PrioritiesListView({ promotions, role, onSubmitPromo, onEditPromo, onAddRequest, onAddPriority }) {
   return (
     <div className="animate-fade-in-up">
       <div className="mb-4 flex flex-wrap items-start justify-end gap-3">
-        {role === 'hq' && onBulkImport && <BulkUpload type="priority" onImport={onBulkImport} refData={refData} />}
         {role === 'hq' && onAddPriority && (
           <button onClick={onAddPriority} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-green-2 hover:bg-green-3 text-white font-bold text-sm transition-colors shadow-sm">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
