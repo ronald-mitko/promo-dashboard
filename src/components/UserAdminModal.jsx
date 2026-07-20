@@ -10,12 +10,57 @@ export default function UserAdminModal({ onClose, currentUser }) {
   const [busy, setBusy] = useState(false)
   const [invite, setInvite] = useState(null) // { username, link }
   const [copied, setCopied] = useState(false)
+  // Bulk add
+  const [bulkText, setBulkText] = useState('')
+  const [bulkPw, setBulkPw] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkResult, setBulkResult] = useState(null) // { created, skipped, failed }
 
   const load = useCallback(() => {
     setError('')
     listUsers().then(setUsers).catch((e) => setError(e.message))
   }, [])
   useEffect(() => { load() }, [load])
+
+  // Parse a bulk line: "username, Name, email" — or a bare full name ("John Smith"
+  // → john.smith) — or a bare username.
+  const parseLine = (line) => {
+    const s = line.trim()
+    if (!s) return null
+    if (s.includes(',')) {
+      const [u, n, e] = s.split(',').map((x) => x.trim())
+      const username = (u || '').toLowerCase()
+      return username ? { username, name: n || u, email: e || '' } : null
+    }
+    if (/\s/.test(s)) {
+      const username = s.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '')
+      return { username, name: s, email: '' }
+    }
+    return { username: s.toLowerCase(), name: s, email: '' }
+  }
+
+  const bulkAdd = async () => {
+    setError('')
+    setBulkResult(null)
+    if (bulkPw.length < 8) { setError('Default password must be at least 8 characters.'); return }
+    const rows = bulkText.split(/\r?\n/).map(parseLine).filter(Boolean)
+    if (!rows.length) { setError('Enter at least one name (one per line).'); return }
+    setBulkBusy(true)
+    const created = []; const skipped = []; const failed = []
+    for (const u of rows) {
+      try {
+        await createUser({ username: u.username, name: u.name, email: u.email, password: bulkPw, admin: false })
+        created.push(u.username)
+      } catch (e) {
+        if (/already exists/i.test(e.message || '')) skipped.push(u.username)
+        else failed.push(`${u.username}: ${e.message}`)
+      }
+    }
+    setBulkBusy(false)
+    setBulkResult({ created, skipped, failed })
+    setBulkText('')
+    load()
+  }
 
   const showInvite = (username, link) => { setInvite({ username, link }); setCopied(false) }
   const copy = async () => {
@@ -131,6 +176,25 @@ export default function UserAdminModal({ onClose, currentUser }) {
           </label>
           <button type="submit" disabled={busy} className="w-full mt-3 py-2 rounded-lg bg-green-2 hover:bg-green-3 disabled:opacity-50 text-white font-bold text-sm transition-colors">{busy ? 'Adding…' : 'Add user'}</button>
         </form>
+
+        {/* Bulk add users with one default password */}
+        <div className="border-t border-green-4/10 pt-4 mt-4">
+          <div className="text-xs font-bold text-green-4/50 uppercase tracking-wider mb-2">Bulk add users</div>
+          <label className={LABEL}>Names <span className="normal-case font-normal text-green-4/40">— one per line: full name, or username, or “username, Name, email”</span></label>
+          <textarea value={bulkText} onChange={(e) => setBulkText(e.target.value)} rows={4} placeholder={'John Smith\ndana.reeves, Dana Reeves, dana@youradv.com\nmlee'} className={`${FIELD} w-full mt-1 resize-none`} />
+          <div className="mt-2">
+            <label className={LABEL}>Default password <span className="normal-case font-normal text-green-4/40">— applied to everyone (min 8)</span></label>
+            <input type="text" value={bulkPw} onChange={(e) => setBulkPw(e.target.value)} placeholder="Shared starter password" className={`${FIELD} w-full mt-1`} />
+          </div>
+          <button type="button" onClick={bulkAdd} disabled={bulkBusy || !bulkText.trim() || bulkPw.length < 8} className="w-full mt-3 py-2 rounded-lg bg-green-3 hover:bg-green-4 disabled:opacity-50 text-white font-bold text-sm transition-colors">{bulkBusy ? 'Adding…' : 'Add all'}</button>
+          <p className="text-[11px] text-green-4/50 mt-1">Everyone gets the same password — ask them to change it under Settings → Change password.</p>
+          {bulkResult && (
+            <div className="mt-2 text-xs">
+              <div className="text-green-3 font-bold">{bulkResult.created.length} added{bulkResult.skipped.length ? ` · ${bulkResult.skipped.length} already existed` : ''}{bulkResult.failed.length ? ` · ${bulkResult.failed.length} failed` : ''}</div>
+              {bulkResult.failed.length > 0 && <div className="mt-1 text-red-600">{bulkResult.failed.slice(0, 20).map((f, i) => <div key={i}>{f}</div>)}</div>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
